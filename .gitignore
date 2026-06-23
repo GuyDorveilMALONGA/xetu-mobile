@@ -23,6 +23,7 @@ expo-env.d.ts
 
 # debug
 expo-server*.log
+expo-web*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
