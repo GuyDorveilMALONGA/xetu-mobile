@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Bus, fetchBuses, getApiBaseUrl } from './src/api';
+import { Bus, fetchBuses } from './src/api';
+import { getApiBaseUrl } from './src/config';
 
 export default function App() {
   const [buses, setBuses] = useState<Bus[]>([]);

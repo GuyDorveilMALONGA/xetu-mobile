@@ -1,3 +1,16 @@
+import { API_BASE_URL } from './config';
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'config' | 'http' | 'contract' | 'network',
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export type Bus = {
   id?: string | number;
   ligne?: string;
@@ -20,35 +33,33 @@ export type BusesPayload = {
   raw: unknown;
 };
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ?? '';
-
-export function getApiBaseUrl() {
-  return API_BASE_URL;
-}
-
 function normalizeBuses(payload: unknown): Bus[] {
-  if (Array.isArray(payload)) {
-    return payload as Bus[];
+  if (!payload || typeof payload !== 'object') {
+    throw new ApiError('GET /api/buses returned a non-object payload.', 'contract');
   }
 
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    if (Array.isArray(record.buses)) return record.buses as Bus[];
-    if (Array.isArray(record.data)) return record.data as Bus[];
-    if (Array.isArray(record.items)) return record.items as Bus[];
+  const record = payload as Record<string, unknown>;
+  if (!Array.isArray(record.buses)) {
+    throw new ApiError('GET /api/buses must return { buses: [...] }.', 'contract');
   }
 
-  return [];
+  return record.buses as Bus[];
 }
 
 export async function fetchBuses(): Promise<BusesPayload> {
   if (!API_BASE_URL) {
-    throw new Error('Missing EXPO_PUBLIC_API_BASE_URL. Create a local .env from .env.example.');
+    throw new ApiError('Missing EXPO_PUBLIC_API_BASE_URL. Create a local .env from .env.example.', 'config');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/buses`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/buses`);
+  } catch (error) {
+    throw new ApiError(error instanceof Error ? error.message : 'Network request failed.', 'network');
+  }
+
   if (!response.ok) {
-    throw new Error(`GET /api/buses failed with HTTP ${response.status}`);
+    throw new ApiError(`GET /api/buses failed with HTTP ${response.status}`, 'http', response.status);
   }
 
   const raw = await response.json();
