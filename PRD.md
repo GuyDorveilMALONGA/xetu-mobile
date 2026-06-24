@@ -90,7 +90,15 @@ Base URL : `EXPO_PUBLIC_API_BASE_URL` (URL publique Railway du backend). En nati
 
 ---
 
-## 4. Types partagés (`src/types.ts` — dérivés des réponses réelles)
+## 4. Types partagés (`src/types.gen.ts` — générés depuis OpenAPI)
+
+Source de vérité actuelle :
+
+- Backend : `whatsapp-agent/api/schemas.py` expose les `response_model` FastAPI mobile-facing.
+- Mobile : `src/types.gen.ts` est généré depuis `/openapi.json`.
+- Commande : `npm run generate:api-types -- <backend-openapi-url-or-file>`.
+
+Ne pas recréer ces types à la main dans l'app. Les extraits ci-dessous décrivent les formes métier attendues ; le code doit importer les types depuis `src/types.gen.ts`.
 
 ```ts
 // GET /api/buses
@@ -126,7 +134,7 @@ export type BusesResponse = { buses: Bus[]; total: number; timestamp: string } |
 // GET /api/stops/search
 export type StopLine = { numero: string; has_recent: boolean; last_seen_min: number | null };
 export type Stop = { nom: string; lat: number | null; lon: number | null; distance_m: number | null; lignes: StopLine[] };
-export type StopsResponse = { stops: Stop[]; total: number; query: string; via_secteur?: string };
+export type StopsSearchResponse = { stops: Stop[]; total: number; query: string; via_secteur?: string };
 
 // POST /api/report
 export type ReportPayload = {
@@ -157,7 +165,7 @@ export type LeaderboardResponse = {
   stats: { total_signalements_aujourd_hui: number; total_signalements_all_time: number; nb_contributeurs: number };
 };
 
-// GET /api/route — shape inconnue avant capture (S4). Typer après échantillon réel.
+// GET /api/route — enveloppe typée depuis OpenAPI, objets routes internes encore souples.
 export type RouteResponse = { origin_query: string; dest_query: string; [k: string]: unknown };
 ```
 
@@ -169,13 +177,13 @@ Convention par slice : **But · User story · Contrat · UI/états · Acceptatio
 
 ---
 
-### S0 — Socle & client API typé  *(partiellement fait)*
+### S0 — Socle & client API typé  *(fait — OpenAPI généré)*
 
 - **But** : transformer le scaffold en base produit stable et typée.
 - **Scope**
   - `src/config.ts` : lit `EXPO_PUBLIC_API_BASE_URL`, expose `apiBaseUrl`, `isConfigured`, flags publics.
-  - `src/types.ts` : §4.
-  - `src/api.ts` : `request<T>()` central avec timeout (`AbortController`, défaut 8s), parse JSON, mappe erreurs → `ApiError`.
+  - `src/types.gen.ts` : types générés depuis `/openapi.json` (§4).
+  - `src/api.ts` : client HTTP strict ; `Bus` vient de `components['schemas']['BusPosition']`.
   - `src/errors.ts` : `ApiError { kind: 'network'|'timeout'|'http'|'parse'; status?; retryAfter?; message }`.
   - `src/identity.ts` : `getDeviceId()` (UUID v4 persisté, `expo` AsyncStorage / SecureStore non requis car non-secret).
 - **États transverses** : helper `AsyncState<T> = idle | loading | success(T) | error(ApiError)`.
@@ -184,7 +192,7 @@ Convention par slice : **But · User story · Contrat · UI/états · Acceptatio
   - Un appel qui timeout produit `ApiError.kind='timeout'` (vérifiable en pointant une URL morte).
 - **Vérif** : `npx.cmd tsc --noEmit` · `npx.cmd expo config --type public` · capture écran web "API non configurée".
 - **Hors-scope** : retries, cache.
-- **Risque** : `normalizeBuses` spéculatif (`data`/`items`) — le backend ne renvoie que `{buses}`. → durcir à `{buses}` strict.
+- **Statut** : `normalizeBuses` est strict sur `{buses}` ; maintenir cette règle avec les types générés.
 
 ---
 
@@ -211,7 +219,7 @@ Convention par slice : **But · User story · Contrat · UI/états · Acceptatio
 
 - **But** : chercher un lieu/arrêt et voir les lignes + récence.
 - **User story** : « Je tape "Liberté 4" et je vois les arrêts proches et quelles lignes y passent, lesquelles ont un bus récent. »
-- **Contrat** : `GET /api/stops/search?q=&lat?&lon?` → `StopsResponse`. (Min 2 chars ; sinon ne pas appeler.)
+- **Contrat** : `GET /api/stops/search?q=&lat?&lon?` → `StopsSearchResponse`. (Min 2 chars ; sinon ne pas appeler.)
 - **UI** : `SearchBar` (debounce 300ms, longueur ≥2), `StopResultList`, `StopCard` (nom, `distance_m` si GPS, puces `lignes[]` avec pastille `has_recent`/`last_seen_min`), bandeau `via_secteur` si présent ("Résultats via secteur : …").
 - **États** : typing (<2 chars → hint), loading, empty (`total:0` → "Aucun arrêt trouvé, essaie un quartier"), error.
 - **Acceptation**
@@ -251,13 +259,13 @@ Convention par slice : **But · User story · Contrat · UI/états · Acceptatio
 
 - **But** : calculer un trajet origine→destination.
 - **User story** : « De Castors à Liberté 6, quelle ligne je prends ? »
-- **Contrat** : `GET /api/route?from=&to=&no_transfer?`. **Réponse dynamique** → **capturer un échantillon réel d'abord**, puis typer `RouteResponse` précisément.
+- **Contrat** : `GET /api/route?from=&to=&no_transfer?` → `RouteResponse`. Les statuts sont typés ; les objets internes de `routes`, `alt_walk`, `alt_transfer` restent souples et doivent être capturés avant UI fine.
 - **Pré-requis bloquant** : tâche S4.0 = appeler l'endpoint live, sauvegarder le JSON, déduire le type. **Ne pas coder l'écran avant.**
 - **UI** : `RoutePlanner` (deux champs branchés sur S2 pour résoudre de vrais noms), toggle "sans correspondance" (`no_transfer`), `RouteResult`.
 - **États** : loading, `422` (champs manquants), `500` (`route_calculation_failed` → "Itinéraire indisponible"), empty (aucun trajet).
 - **Acceptation**
   - `from`/`to` envoyés via le **paramètre `from`** (pas `from_`).
-  - Type `RouteResponse` reflète l'échantillon capturé, pas une hypothèse.
+  - Les sous-types UI de `routes` reflètent l'échantillon capturé, pas une hypothèse.
 - **Vérif** : capture JSON réelle commitée dans `docs/samples/route.json` · `tsc` · run : un trajet connu rend un résultat.
 - **Hors-scope** : tracé sur carte (S8).
 
@@ -368,8 +376,8 @@ Le backend ne sait envoyer que du **Web Push** (`/api/push/*`, VAPID, `pywebpush
 ### 7.2 Source `report` pour le mobile  **[décision D7 à créer]**
 La whitelist `source` est 100% `web_*`. Un mobile envoie soit une valeur existante (coercée/imprécise), soit on **ajoute `mobile_signal`/`mobile_geoloc` à la whitelist backend** (1 ligne dans `api/report.py`). Recommandation : **ajouter les sources mobiles** pour une analytics propre ; sinon par défaut `web_geoloc`/`web_signal`.
 
-### 7.3 Shape de `/api/route` inconnue  **[lever en S4.0]**
-Réponse dynamique non typée à la source. → capture obligatoire avant code écran.
+### 7.3 Shape interne de `/api/route` partiellement souple  **[lever en S4.0]**
+`/api/route` expose maintenant une enveloppe `RouteResponse` dans OpenAPI. Les statuts sont typés, mais les entrées de `routes`, `alt_walk`, `alt_transfer` restent des objets souples. Avant l'écran route : capturer au moins 3 réponses réelles (`direct`, `transfer`, `not_found`) et figer les sous-types UI nécessaires.
 
 ### 7.4 Claims Expo à reverifier avant builds natifs
 La BIBLE référence la doc Expo pour SDK 56, development builds, push et variables d'environnement. Ces sources ont été vérifiées le 2026-06-24, mais doivent être relues avant S8/S9 car les exigences Expo/EAS peuvent évoluer.
@@ -383,7 +391,7 @@ La BIBLE référence la doc Expo pour SDK 56, development builds, push et variab
 
 | Slice | Commande | Observation attendue |
 |---|---|---|
-| S0 | `tsc --noEmit` + run web | État "API non configurée" rendu, pas de crash |
+| S0 | `tsc --noEmit` + `npm run generate:api-types -- <openapi>` + run web | État "API non configurée" rendu, pas de crash |
 | S1 | run web (backend réel) | Liste bus OU erreur actionnable ; mapping testé |
 | S2 | run web + log réseau | 1 requête après debounce ; arrêts rendus |
 | S3 | run + 6 envois | `201` puis `429` avec compte à rebours |
@@ -401,7 +409,7 @@ La BIBLE référence la doc Expo pour SDK 56, development builds, push et variab
 
 ## 9. Backlog ordonné
 
-1. **S0** socle typé (finir)
+1. **S0** socle typé (fait ; maintenir types OpenAPI)
 2. **S1** accueil bus live (durcir)
 3. **S2** recherche arrêts
 4. **S3** signaler
