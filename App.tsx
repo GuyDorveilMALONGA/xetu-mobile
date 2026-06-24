@@ -1,249 +1,343 @@
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { addSubscription, Bus, fetchBuses, getSubscriptions, removeSubscription } from './src/api';
-import { getApiBaseUrl } from './src/config';
-import { ApiError, toApiError } from './src/errors';
-import { getDeviceId, getPhoneSurrogate } from './src/identity';
-import { LiveScreen } from './src/screens/LiveScreen';
-import { MyLinesScreen } from './src/screens/MyLinesScreen';
-import { SearchScreen } from './src/screens/SearchScreen';
+import { createElement, useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
+import { getAllowedWebViewOrigins, getPwaUrl } from './src/config';
 
-type Tab = 'live' | 'search' | 'lines' | 'report' | 'route' | 'leaderboard';
+type NativeBridgePayload =
+  | {
+      type: 'nativeCapabilities';
+      bridgeVersion: 1;
+      geoloc: true;
+      push: false;
+      platform: typeof Platform.OS;
+      shell: 'expo-webview';
+    }
+  | {
+      type: 'locationResult';
+      requestId?: string | null;
+      lat?: number;
+      lon?: number;
+      accuracy?: number | null;
+      error?: 'permission_denied' | 'location_unavailable' | 'invalid_request';
+    };
+
+type WebBridgeRequest = {
+  type?: string;
+  action?: string;
+  requestId?: string | null;
+};
+
+function createBridgeInjection(payload: NativeBridgePayload) {
+  const serializedPayload = JSON.stringify(payload).replace(/</g, '\\u003c');
+
+  return `
+    (function () {
+      var payload = ${serializedPayload};
+      var payloadText = JSON.stringify(payload);
+
+      try {
+        window.dispatchEvent(new CustomEvent('xetu:nativeMessage', { detail: payload }));
+      } catch (error) {}
+
+      try {
+        window.dispatchEvent(new MessageEvent('message', { data: payloadText }));
+      } catch (error) {}
+
+      try {
+        if (window.XetuNativeBridge && typeof window.XetuNativeBridge.receive === 'function') {
+          window.XetuNativeBridge.receive(payload);
+        }
+      } catch (error) {}
+    })();
+    true;
+  `;
+}
+
+const injectedBridgeBootstrap = `
+  (function () {
+    window.XETU_NATIVE_SHELL = true;
+    window.XetuNative = window.XetuNative || {};
+    window.XetuNative.requestLocation = function (requestId) {
+      if (!window.ReactNativeWebView || typeof window.ReactNativeWebView.postMessage !== 'function') {
+        return false;
+      }
+
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'requestLocation',
+        requestId: requestId || null
+      }));
+      return true;
+    };
+  })();
+  true;
+`;
+
+function getOrigin(url: string) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedNavigation(url: string, allowedOrigins: string[]) {
+  if (url === 'about:blank' || url.startsWith('about:blank#')) {
+    return true;
+  }
+
+  const origin = getOrigin(url);
+  return origin !== null && allowedOrigins.includes(origin);
+}
+
+function WebPreviewFrame({ pwaUrl }: { pwaUrl: string }) {
+  return (
+    <View style={styles.webPreviewContainer}>
+      {createElement('iframe', {
+        allow: 'geolocation',
+        src: pwaUrl,
+        style: styles.webPreviewFrame,
+        title: 'Xetu PWA',
+      })}
+    </View>
+  );
+}
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('live');
-  const [buses, setBuses] = useState<Bus[]>([]);
-  const [error, setError] = useState<ApiError | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [deviceId, setDeviceId] = useState('');
-  const [deviceLabel, setDeviceLabel] = useState<string | null>(null);
-  const [followedLines, setFollowedLines] = useState<string[]>([]);
-  const [pendingLines, setPendingLines] = useState<string[]>([]);
-  const apiBaseUrl = getApiBaseUrl();
+  const webViewRef = useRef<WebView>(null);
+  const [webViewKey, setWebViewKey] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
+  const pwaUrl = useMemo(() => getPwaUrl(Platform.OS), []);
+  const allowedOrigins = useMemo(() => getAllowedWebViewOrigins(Platform.OS), []);
 
-  const sortedBuses = useMemo(
-    () => [...buses].sort((a, b) => a.minutes_depuis_signalement - b.minutes_depuis_signalement),
-    [buses],
+  const sendToPwa = useCallback((payload: NativeBridgePayload) => {
+    webViewRef.current?.injectJavaScript(createBridgeInjection(payload));
+  }, []);
+
+  const sendCapabilities = useCallback(() => {
+    sendToPwa({
+      type: 'nativeCapabilities',
+      bridgeVersion: 1,
+      geoloc: true,
+      push: false,
+      platform: Platform.OS,
+      shell: 'expo-webview',
+    });
+  }, [sendToPwa]);
+
+  const sendLocationResult = useCallback(
+    (payload: Omit<Extract<NativeBridgePayload, { type: 'locationResult' }>, 'type'>) => {
+      sendToPwa({
+        type: 'locationResult',
+        ...payload,
+      });
+    },
+    [sendToPwa],
   );
 
-  const loadBuses = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const payload = await fetchBuses();
-      setBuses(payload.buses);
-    } catch (err) {
-      setError(toApiError(err));
-      setBuses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadSubscriptions = useCallback(async (id: string) => {
-    try {
-      const lines = await getSubscriptions(id);
-      setFollowedLines(lines);
-    } catch (err) {
-      console.warn('Failed to load subscriptions:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    const id = getDeviceId();
-    setDeviceId(id);
-    setDeviceLabel(getPhoneSurrogate(id));
-    if (apiBaseUrl) {
-      void loadSubscriptions(id);
-      void loadBuses();
-    }
-  }, [apiBaseUrl, loadSubscriptions, loadBuses]);
-
-  const toggleLine = async (ligne: string) => {
-    // Prevent concurrent mutations for the same line
-    if (pendingLines.includes(ligne)) {
-      return;
-    }
-
-    const isFollowed = followedLines.includes(ligne);
-    const previousLines = [...followedLines];
-
-    // Mark line as mutating
-    setPendingLines((prev) => [...prev, ligne]);
-
-    // Optimistic UI update
-    if (isFollowed) {
-      setFollowedLines((prev) => prev.filter((l) => l !== ligne));
-    } else {
-      setFollowedLines((prev) => [...prev, ligne]);
-    }
-
-    try {
-      if (isFollowed) {
-        await removeSubscription(deviceId, ligne);
-      } else {
-        await addSubscription(deviceId, ligne);
+  const handleLocationRequest = useCallback(
+    async (requestId?: string | null) => {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
+        sendLocationResult({ requestId, error: 'permission_denied' });
+        return;
       }
-    } catch (err) {
-      // Rollback on error
-      setFollowedLines(previousLines);
-      alert(`Impossible de modifier le favori pour la Ligne ${ligne}.`);
-    } finally {
-      // Unmark line as mutating
-      setPendingLines((prev) => prev.filter((l) => l !== ligne));
-    }
-  };
 
-  const renderActiveScreen = () => {
-    switch (activeTab) {
-      case 'live':
-        return (
-          <LiveScreen
-            apiBaseUrl={apiBaseUrl}
-            buses={sortedBuses}
-            deviceLabel={deviceLabel}
-            error={error}
-            loading={loading}
-            onRefresh={loadBuses}
-          />
-        );
-      case 'search':
-        return (
-          <SearchScreen
-            followedLines={followedLines}
-            pendingLines={pendingLines}
-            onToggleLine={toggleLine}
-          />
-        );
-      case 'lines':
-        return (
-          <MyLinesScreen
-            followedLines={followedLines}
-            pendingLines={pendingLines}
-            onToggleLine={toggleLine}
-          />
-        );
-      default:
-        return (
-          <LiveScreen
-            apiBaseUrl={apiBaseUrl}
-            buses={sortedBuses}
-            deviceLabel={deviceLabel}
-            error={error}
-            loading={loading}
-            onRefresh={loadBuses}
-          />
-        );
-    }
-  };
+      try {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        sendLocationResult({
+          requestId,
+          lat: location.coords.latitude,
+          lon: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+        });
+      } catch {
+        sendLocationResult({ requestId, error: 'location_unavailable' });
+      }
+    },
+    [sendLocationResult],
+  );
+
+  const handleMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      let message: WebBridgeRequest;
+
+      try {
+        message = JSON.parse(event.nativeEvent.data) as WebBridgeRequest;
+      } catch {
+        sendLocationResult({ error: 'invalid_request' });
+        return;
+      }
+
+      const messageType = message.type ?? message.action;
+      if (messageType === 'requestLocation') {
+        void handleLocationRequest(message.requestId);
+      }
+    },
+    [handleLocationRequest, sendLocationResult],
+  );
+
+  const handleShouldStartLoad = useCallback(
+    (request: WebViewNavigation) => {
+      const allowed = isAllowedNavigation(request.url, allowedOrigins);
+      if (!allowed) {
+        setBlockedUrl(request.url);
+      }
+      return allowed;
+    },
+    [allowedOrigins],
+  );
+
+  const retry = useCallback(() => {
+    setBlockedUrl(null);
+    setLoadFailed(false);
+    setWebViewKey((key) => key + 1);
+  }, []);
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.appContainer}>
+        <StatusBar style="dark" />
+        <WebPreviewFrame pwaUrl={pwaUrl} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.appContainer}>
       <StatusBar style="dark" />
-      <View style={styles.screenContainer}>{renderActiveScreen()}</View>
-
-      {/* Custom Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Onglet Live"
-          onPress={() => setActiveTab('live')}
-          style={styles.tab}
-        >
-          <Text style={[styles.tabIcon, activeTab === 'live' && styles.tabIconActive]}>🟢</Text>
-          <Text style={[styles.tabText, activeTab === 'live' && styles.tabTextActive]}>Live</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Onglet Recherche"
-          onPress={() => setActiveTab('search')}
-          style={styles.tab}
-        >
-          <Text style={[styles.tabIcon, activeTab === 'search' && styles.tabIconActive]}>🔍</Text>
-          <Text style={[styles.tabText, activeTab === 'search' && styles.tabTextActive]}>Recherche</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Onglet Mes Lignes"
-          onPress={() => setActiveTab('lines')}
-          style={styles.tab}
-        >
-          <Text style={[styles.tabIcon, activeTab === 'lines' && styles.tabIconActive]}>📌</Text>
-          <Text style={[styles.tabText, activeTab === 'lines' && styles.tabTextActive]}>Mes lignes</Text>
-        </Pressable>
-
-        {/* Disabled placeholders for Lot B / Lot C */}
-        <View style={[styles.tab, styles.tabDisabled]}>
-          <Text style={styles.tabIconDisabled}>📣</Text>
-          <Text style={styles.tabTextDisabled}>Signaler</Text>
+      {loadFailed ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>PWA injoignable</Text>
+          <Text style={styles.errorText}>
+            Impossible de charger Xetu depuis {pwaUrl}. Verifie que la PWA est lancee et accessible depuis cet appareil.
+          </Text>
+          <Pressable accessibilityRole="button" onPress={retry} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Reessayer</Text>
+          </Pressable>
         </View>
+      ) : (
+        <>
+          <WebView
+            key={webViewKey}
+            ref={webViewRef}
+            source={{ uri: pwaUrl }}
+            style={styles.webView}
+            originWhitelist={['http://*', 'https://*']}
+            injectedJavaScriptBeforeContentLoaded={injectedBridgeBootstrap}
+            javaScriptEnabled
+            domStorageEnabled
+            geolocationEnabled={false}
+            setSupportMultipleWindows={false}
+            onLoadStart={() => {
+              setLoadFailed(false);
+              setBlockedUrl(null);
+            }}
+            onLoadEnd={sendCapabilities}
+            onError={() => setLoadFailed(true)}
+            onHttpError={() => setLoadFailed(true)}
+            onMessage={handleMessage}
+            onShouldStartLoadWithRequest={handleShouldStartLoad}
+            startInLoadingState
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#116a5c" />
+                <Text style={styles.loadingText}>Chargement de Xetu...</Text>
+              </View>
+            )}
+          />
 
-        <View style={[styles.tab, styles.tabDisabled]}>
-          <Text style={styles.tabIconDisabled}>🗺️</Text>
-          <Text style={styles.tabTextDisabled}>Route</Text>
-        </View>
-
-        <View style={[styles.tab, styles.tabDisabled]}>
-          <Text style={styles.tabIconDisabled}>🏆</Text>
-          <Text style={styles.tabTextDisabled}>Top</Text>
-        </View>
-      </View>
+          {blockedUrl ? (
+            <View style={styles.blockedBanner}>
+              <Text style={styles.blockedText}>Navigation bloquee hors PWA: {getOrigin(blockedUrl) ?? blockedUrl}</Text>
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   appContainer: {
-    flex: 1,
-    backgroundColor: '#f4f7f1',
-  },
-  screenContainer: {
-    flex: 1,
-    paddingTop: 54, // Safe padding top
-  },
-  tabBar: {
     backgroundColor: '#ffffff',
-    borderTopColor: '#cedbd2',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    height: 64,
-    justifyContent: 'space-around',
-    paddingBottom: 4,
-    paddingTop: 6,
+    flex: 1,
   },
-  tab: {
+  blockedBanner: {
+    backgroundColor: '#fff4df',
+    borderTopColor: '#f0c36a',
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    position: 'absolute',
+    right: 0,
+  },
+  blockedText: {
+    color: '#5f4300',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorContainer: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+    padding: 24,
   },
-  tabDisabled: {
-    opacity: 0.35,
+  errorText: {
+    color: '#42514a',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  tabIcon: {
-    fontSize: 16,
-    marginBottom: 2,
+  errorTitle: {
+    color: '#11251d',
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 10,
   },
-  tabIconActive: {
-    transform: [{ scale: 1.1 }],
+  loadingContainer: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
-  tabIconDisabled: {
-    fontSize: 16,
-    marginBottom: 2,
+  loadingText: {
+    color: '#42514a',
+    fontSize: 14,
+    marginTop: 10,
   },
-  tabText: {
-    color: '#64726b',
-    fontSize: 11,
+  primaryButton: {
+    backgroundColor: '#116a5c',
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '800',
   },
-  tabTextActive: {
-    color: '#116a5c',
+  webPreviewContainer: {
+    flex: 1,
   },
-  tabTextDisabled: {
-    color: '#86958e',
-    fontSize: 11,
-    fontWeight: '800',
+  webPreviewFrame: {
+    borderWidth: 0,
+    height: '100%',
+    width: '100%',
+  },
+  webView: {
+    flex: 1,
   },
 });

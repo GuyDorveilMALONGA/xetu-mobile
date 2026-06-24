@@ -22,7 +22,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Autoriser Xetu à utiliser votre position pour partager votre position de bus quand vous le demandez."
+        }
+      ]
     ]
   }
 }
