@@ -6,6 +6,8 @@
     "@expo/metro-runtime": "~56.0.15",
     "doryx-mcp": "file:../Le manifeste Doryx/doryx-mcp-0.2.0.tgz",
     "expo": "~56.0.12",
+    "expo-location": "~56.0.18",
+    "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",

@@ -1,53 +1,81 @@
 import { API_BASE_URL } from './config';
+import { ApiError, toApiError } from './errors';
 import type { components } from './types.gen';
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly code: 'config' | 'http' | 'contract' | 'network',
-    public readonly status?: number,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
 export type Bus = components['schemas']['BusPosition'];
+export type BusesResponse = components['schemas']['BusesResponse'];
 
 export type BusesPayload = {
   buses: Bus[];
-  raw: unknown;
+  total: number;
+  timestamp: string | null;
+  raw: BusesResponse;
 };
 
-function normalizeBuses(payload: unknown): Bus[] {
+const REQUEST_TIMEOUT_MS = 8000;
+
+function normalizeBuses(payload: unknown): BusesResponse {
   if (!payload || typeof payload !== 'object') {
-    throw new ApiError('GET /api/buses returned a non-object payload.', 'contract');
+    throw new ApiError('parse', 'GET /api/buses returned a non-object payload.');
   }
 
-  const record = payload as Record<string, unknown>;
+  const record = payload as Partial<BusesResponse>;
   if (!Array.isArray(record.buses)) {
-    throw new ApiError('GET /api/buses must return { buses: [...] }.', 'contract');
+    throw new ApiError('parse', 'GET /api/buses must return { buses: [...] }.');
   }
 
-  return record.buses as Bus[];
+  return {
+    buses: record.buses,
+    total: typeof record.total === 'number' ? record.total : record.buses.length,
+    timestamp: record.timestamp ?? null,
+    error: record.error ?? null,
+  };
 }
 
-export async function fetchBuses(): Promise<BusesPayload> {
+async function requestJson<T>(path: string): Promise<T> {
   if (!API_BASE_URL) {
-    throw new ApiError('Missing EXPO_PUBLIC_API_BASE_URL. Create a local .env from .env.example.', 'config');
+    throw new ApiError('config', 'Missing EXPO_PUBLIC_API_BASE_URL.');
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/buses`);
+    response = await fetch(`${API_BASE_URL}${path}`, { signal: controller.signal });
   } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : 'Network request failed.', 'network');
+    throw toApiError(error);
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!response.ok) {
-    throw new ApiError(`GET /api/buses failed with HTTP ${response.status}`, 'http', response.status);
+    let retryAfter: number | undefined;
+    const header = response.headers.get('retry-after');
+    if (header) {
+      const parsed = Number(header);
+      retryAfter = Number.isFinite(parsed) ? parsed : undefined;
+    }
+    throw new ApiError('http', `GET ${path} failed with HTTP ${response.status}`, response.status, retryAfter);
   }
 
-  const raw = await response.json();
-  return { buses: normalizeBuses(raw), raw };
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError('parse', `GET ${path} returned invalid JSON.`);
+  }
+}
+
+export async function fetchBuses(): Promise<BusesPayload> {
+  const raw = normalizeBuses(await requestJson<unknown>('/api/buses'));
+  if (raw.error) {
+    throw new ApiError('http', raw.error, 200);
+  }
+
+  return {
+    buses: raw.buses,
+    total: raw.total,
+    timestamp: raw.timestamp ?? null,
+    raw,
+  };
 }
