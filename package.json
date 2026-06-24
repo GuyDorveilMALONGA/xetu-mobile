@@ -21,7 +21,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "doryx:server": "node \"node_modules/doryx-mcp/dist/src/index.js\""
+    "doryx:server": "node \"node_modules/doryx-mcp/dist/src/index.js\"",
+    "generate:api-types": "node scripts/generate-api-types.mjs"
   },
   "private": true
 }

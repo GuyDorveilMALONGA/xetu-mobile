@@ -82,8 +82,8 @@ export default function App() {
         ) : null}
 
         {buses.map((bus, index) => (
-          <View key={`${bus.id ?? bus.ligne ?? 'bus'}-${index}`} style={styles.busCard}>
-            <Text style={styles.busLine}>Ligne {String(bus.ligne ?? bus.id ?? index + 1)}</Text>
+          <View key={`${bus.ligne}-${bus.arret_estime}-${index}`} style={styles.busCard}>
+            <Text style={styles.busLine}>Ligne {bus.ligne}</Text>
             <Text style={styles.busMeta}>
               {String(bus.arret_estime ?? bus.arret_signale ?? 'Position non precisee')}
             </Text>

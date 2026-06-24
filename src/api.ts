@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import type { components } from './types.gen';
 
 export class ApiError extends Error {
   constructor(
@@ -11,22 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export type Bus = {
-  id?: string | number;
-  ligne?: string;
-  arret_signale?: string;
-  arret_estime?: string;
-  sens?: string;
-  lat?: number | null;
-  lon?: number | null;
-  next_arret?: string | null;
-  confidence_level?: string;
-  confidence_reason?: string;
-  tracking_mode?: string;
-  tracking_reason?: string;
-  tracking_freshness_sec?: number | null;
-  [key: string]: unknown;
-};
+export type Bus = components['schemas']['BusPosition'];
 
 export type BusesPayload = {
   buses: Bus[];
