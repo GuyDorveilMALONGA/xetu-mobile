@@ -18,6 +18,9 @@ Le produit doit sortir par paliers:
 
 ## 2. Non-negociables
 
+Note d'autorite: cette section fixe le cap produit tant que Doryx mobile n'a pas encore materialise ses artefacts. Des que Doryx cree ses fichiers de decisions/contraintes pour `xetu-mobile`, ces decisions et contraintes doivent etre deplacees ou referencees depuis Doryx, et la Bible ne doit plus en garder une copie divergente.
+
+
 - Repo mobile separe du backend: pas de code backend copie dans `xetu-mobile`.
 - Contrat API derive du backend reel, pas d'hypotheses client.
 - Pas de secret dans git: `.env`, certificats, keystores, service accounts et tokens restent hors repo.
@@ -60,7 +63,7 @@ Commits de reference:
 ### Backend
 
 - Source de verite: `C:\Users\DELL\Desktop\whatsapp-agent`.
-- Endpoints prioritaires: `/api/buses`, `/api/stops`, `/api/route`, `/api/report`, `/api/leaderboard`, push/subscriptions selon phase.
+- Endpoints prioritaires: `/api/buses`, `/api/stops/search`, `/api/route`, `/api/report`, `/api/leaderboard`, push/subscriptions selon phase.
 - CORS web utile pour preview navigateur; le natif Android/iOS n'a pas la meme contrainte navigateur.
 
 ### Doryx
@@ -70,6 +73,9 @@ Commits de reference:
 - Chaque tranche mobile doit commencer par une intention claire: scope, preuves attendues, rollback.
 
 ## 5. Decisions a trancher avant code lourd
+
+Ces decisions sont un backlog de decisions. Quand Doryx mobile est initialise, elles doivent etre enregistrees dans l'artefact de decisions Doryx et cette section doit devenir un index vers cet artefact, pas une deuxieme source de verite.
+
 
 ### D1 - Navigation
 
@@ -198,7 +204,7 @@ Prerequis:
 
 - Android Studio installe.
 - AVD Android cree.
-- Node compatible Expo SDK 56. La doc Expo SDK 56 indique Node 22.13.x comme minimum cible pour SDK 56.
+- Node compatible Expo SDK 56. Source Expo SDK reference: SDK 56 cible React Native 0.85, React 19.2.3, React Native Web 0.21.0 et Node minimum 22.13.x.
 
 Tasks:
 
@@ -225,7 +231,7 @@ Definition done:
 
 Objectif: sortir d'Expo Go quand on ajoute des capacites natives.
 
-Pourquoi: Expo dit que les push distants, les assets natifs et les libs natives non incluses dans Expo Go doivent etre testes en development build, pas seulement Expo Go.
+Pourquoi: la documentation Expo indique que les push distants ne sont pas disponibles dans Expo Go et recommande de les tester dans un development build pour garder la parite avec la production.
 
 Tasks:
 
@@ -396,7 +402,7 @@ Definition done:
 
 ## 8. Sources Expo consultees
 
-- Expo SDK 56 reference: https://docs.expo.dev/versions/v56.0.0/
+- Expo SDK reference / SDK 56 table: https://docs.expo.dev/versions/latest/
 - Development builds: https://docs.expo.dev/develop/development-builds/introduction/
 - EAS Build: https://docs.expo.dev/build/introduction/
 - Push notifications: https://docs.expo.dev/push-notifications/overview/
