@@ -1,18 +1,25 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Bus, fetchBuses } from './src/api';
-import { ApiStatusBanner } from './src/components/ApiStatusBanner';
-import { BusList } from './src/components/BusList';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { addSubscription, Bus, fetchBuses, getSubscriptions, removeSubscription } from './src/api';
 import { getApiBaseUrl } from './src/config';
 import { ApiError, toApiError } from './src/errors';
 import { getDeviceId, getPhoneSurrogate } from './src/identity';
+import { LiveScreen } from './src/screens/LiveScreen';
+import { MyLinesScreen } from './src/screens/MyLinesScreen';
+import { SearchScreen } from './src/screens/SearchScreen';
+
+type Tab = 'live' | 'search' | 'lines' | 'report' | 'route' | 'leaderboard';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<Tab>('live');
   const [buses, setBuses] = useState<Bus[]>([]);
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deviceId, setDeviceId] = useState('');
   const [deviceLabel, setDeviceLabel] = useState<string | null>(null);
+  const [followedLines, setFollowedLines] = useState<string[]>([]);
+  const [pendingLines, setPendingLines] = useState<string[]>([]);
   const apiBaseUrl = getApiBaseUrl();
 
   const sortedBuses = useMemo(
@@ -34,52 +41,209 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    const deviceId = getDeviceId();
-    setDeviceLabel(getPhoneSurrogate(deviceId));
+  const loadSubscriptions = useCallback(async (id: string) => {
+    try {
+      const lines = await getSubscriptions(id);
+      setFollowedLines(lines);
+    } catch (err) {
+      console.warn('Failed to load subscriptions:', err);
+    }
   }, []);
 
   useEffect(() => {
+    const id = getDeviceId();
+    setDeviceId(id);
+    setDeviceLabel(getPhoneSurrogate(id));
     if (apiBaseUrl) {
+      void loadSubscriptions(id);
       void loadBuses();
     }
-  }, [apiBaseUrl, loadBuses]);
+  }, [apiBaseUrl, loadSubscriptions, loadBuses]);
+
+  const toggleLine = async (ligne: string) => {
+    // Prevent concurrent mutations for the same line
+    if (pendingLines.includes(ligne)) {
+      return;
+    }
+
+    const isFollowed = followedLines.includes(ligne);
+    const previousLines = [...followedLines];
+
+    // Mark line as mutating
+    setPendingLines((prev) => [...prev, ligne]);
+
+    // Optimistic UI update
+    if (isFollowed) {
+      setFollowedLines((prev) => prev.filter((l) => l !== ligne));
+    } else {
+      setFollowedLines((prev) => [...prev, ligne]);
+    }
+
+    try {
+      if (isFollowed) {
+        await removeSubscription(deviceId, ligne);
+      } else {
+        await addSubscription(deviceId, ligne);
+      }
+    } catch (err) {
+      // Rollback on error
+      setFollowedLines(previousLines);
+      alert(`Impossible de modifier le favori pour la Ligne ${ligne}.`);
+    } finally {
+      // Unmark line as mutating
+      setPendingLines((prev) => prev.filter((l) => l !== ligne));
+    }
+  };
+
+  const renderActiveScreen = () => {
+    switch (activeTab) {
+      case 'live':
+        return (
+          <LiveScreen
+            apiBaseUrl={apiBaseUrl}
+            buses={sortedBuses}
+            deviceLabel={deviceLabel}
+            error={error}
+            loading={loading}
+            onRefresh={loadBuses}
+          />
+        );
+      case 'search':
+        return (
+          <SearchScreen
+            followedLines={followedLines}
+            pendingLines={pendingLines}
+            onToggleLine={toggleLine}
+          />
+        );
+      case 'lines':
+        return (
+          <MyLinesScreen
+            followedLines={followedLines}
+            pendingLines={pendingLines}
+            onToggleLine={toggleLine}
+          />
+        );
+      default:
+        return (
+          <LiveScreen
+            apiBaseUrl={apiBaseUrl}
+            buses={sortedBuses}
+            deviceLabel={deviceLabel}
+            error={error}
+            loading={loading}
+            onRefresh={loadBuses}
+          />
+        );
+    }
+  };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={loadBuses} enabled={apiBaseUrl.length > 0} />}
-    >
+    <View style={styles.appContainer}>
       <StatusBar style="dark" />
-      <View style={styles.hero}>
-        <Text selectable style={styles.kicker}>Xetu Mobile</Text>
-        <Text selectable style={styles.title}>Bus live pour Dakar</Text>
-        <Text selectable style={styles.subtitle}>Positions estimees, fraicheur du signal et confiance communautaire.</Text>
-      </View>
+      <View style={styles.screenContainer}>{renderActiveScreen()}</View>
 
-      <ApiStatusBanner apiBaseUrl={apiBaseUrl} deviceLabel={deviceLabel} error={error} loading={loading} onRetry={loadBuses} />
+      {/* Custom Bottom Tab Bar */}
+      <View style={styles.tabBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Onglet Live"
+          onPress={() => setActiveTab('live')}
+          style={styles.tab}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'live' && styles.tabIconActive]}>🟢</Text>
+          <Text style={[styles.tabText, activeTab === 'live' && styles.tabTextActive]}>Live</Text>
+        </Pressable>
 
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text selectable style={styles.sectionTitle}>Bus detectes</Text>
-          <Text selectable style={styles.sectionSubtitle}>Tries du signal le plus recent au plus ancien</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Onglet Recherche"
+          onPress={() => setActiveTab('search')}
+          style={styles.tab}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'search' && styles.tabIconActive]}>🔍</Text>
+          <Text style={[styles.tabText, activeTab === 'search' && styles.tabTextActive]}>Recherche</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Onglet Mes Lignes"
+          onPress={() => setActiveTab('lines')}
+          style={styles.tab}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'lines' && styles.tabIconActive]}>📌</Text>
+          <Text style={[styles.tabText, activeTab === 'lines' && styles.tabTextActive]}>Mes lignes</Text>
+        </Pressable>
+
+        {/* Disabled placeholders for Lot B / Lot C */}
+        <View style={[styles.tab, styles.tabDisabled]}>
+          <Text style={styles.tabIconDisabled}>📣</Text>
+          <Text style={styles.tabTextDisabled}>Signaler</Text>
         </View>
-        <Text selectable style={styles.count}>{sortedBuses.length}</Text>
-      </View>
 
-      <BusList buses={sortedBuses} loading={loading} />
-    </ScrollView>
+        <View style={[styles.tab, styles.tabDisabled]}>
+          <Text style={styles.tabIconDisabled}>🗺️</Text>
+          <Text style={styles.tabTextDisabled}>Route</Text>
+        </View>
+
+        <View style={[styles.tab, styles.tabDisabled]}>
+          <Text style={styles.tabIconDisabled}>🏆</Text>
+          <Text style={styles.tabTextDisabled}>Top</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#f4f7f1', gap: 18, minHeight: '100%', paddingBottom: 36, paddingHorizontal: 18, paddingTop: 54 },
-  hero: { gap: 8 },
-  kicker: { color: '#116a5c', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
-  title: { color: '#101915', fontSize: 30, fontWeight: '900', lineHeight: 36 },
-  subtitle: { color: '#5c6a63', fontSize: 15, lineHeight: 22, maxWidth: 560 },
-  sectionHeader: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
-  sectionTitle: { color: '#101915', fontSize: 20, fontWeight: '900' },
-  sectionSubtitle: { color: '#64726b', fontSize: 13, lineHeight: 18, marginTop: 3 },
-  count: { color: '#116a5c', fontSize: 28, fontVariant: ['tabular-nums'], fontWeight: '900' },
+  appContainer: {
+    flex: 1,
+    backgroundColor: '#f4f7f1',
+  },
+  screenContainer: {
+    flex: 1,
+    paddingTop: 54, // Safe padding top
+  },
+  tabBar: {
+    backgroundColor: '#ffffff',
+    borderTopColor: '#cedbd2',
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    height: 64,
+    justifyContent: 'space-around',
+    paddingBottom: 4,
+    paddingTop: 6,
+  },
+  tab: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tabDisabled: {
+    opacity: 0.35,
+  },
+  tabIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  tabIconActive: {
+    transform: [{ scale: 1.1 }],
+  },
+  tabIconDisabled: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  tabText: {
+    color: '#64726b',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  tabTextActive: {
+    color: '#116a5c',
+  },
+  tabTextDisabled: {
+    color: '#86958e',
+    fontSize: 11,
+    fontWeight: '800',
+  },
 });

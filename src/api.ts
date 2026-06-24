@@ -4,6 +4,8 @@ import type { components } from './types.gen';
 
 export type Bus = components['schemas']['BusPosition'];
 export type BusesResponse = components['schemas']['BusesResponse'];
+export type StopsSearchResponse = components['schemas']['StopsSearchResponse'];
+export type StopSearchResult = components['schemas']['StopSearchResult'];
 
 export type BusesPayload = {
   buses: Bus[];
@@ -32,21 +34,67 @@ function normalizeBuses(payload: unknown): BusesResponse {
   };
 }
 
-async function requestJson<T>(path: string): Promise<T> {
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'DELETE';
+  queryParams?: URLSearchParams;
+  body?: unknown;
+  signal?: AbortSignal;
+};
+
+async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!API_BASE_URL) {
     throw new ApiError('config', 'Missing EXPO_PUBLIC_API_BASE_URL.');
   }
 
+  const method = options.method ?? 'GET';
   const controller = new AbortController();
+
+  // Set up timeout that merges with external signal aborts
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  const handleExternalAbort = () => {
+    controller.abort();
+  };
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', handleExternalAbort);
+    }
+  }
+
+  let url = `${API_BASE_URL}${path}`;
+  if (options.queryParams) {
+    const queryStr = options.queryParams.toString();
+    if (queryStr) {
+      url += `?${queryStr}`;
+    }
+  }
+
+  const headers: Record<string, string> = {};
+  let bodyInit: string | undefined;
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    bodyInit = JSON.stringify(options.body);
+  }
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { signal: controller.signal });
+    response = await fetch(url, {
+      method,
+      headers,
+      body: bodyInit,
+      signal: controller.signal,
+    });
   } catch (error) {
     throw toApiError(error);
   } finally {
     clearTimeout(timeout);
+    if (options.signal) {
+      options.signal.removeEventListener('abort', handleExternalAbort);
+    }
   }
 
   if (!response.ok) {
@@ -56,13 +104,13 @@ async function requestJson<T>(path: string): Promise<T> {
       const parsed = Number(header);
       retryAfter = Number.isFinite(parsed) ? parsed : undefined;
     }
-    throw new ApiError('http', `GET ${path} failed with HTTP ${response.status}`, response.status, retryAfter);
+    throw new ApiError('http', `${method} ${path} failed with HTTP ${response.status}`, response.status, retryAfter);
   }
 
   try {
     return (await response.json()) as T;
   } catch {
-    throw new ApiError('parse', `GET ${path} returned invalid JSON.`);
+    throw new ApiError('parse', `${method} ${path} returned invalid JSON.`);
   }
 }
 
@@ -78,4 +126,57 @@ export async function fetchBuses(): Promise<BusesPayload> {
     timestamp: raw.timestamp ?? null,
     raw,
   };
+}
+
+export async function searchStops(q: string, lat?: number, lon?: number, signal?: AbortSignal): Promise<StopsSearchResponse> {
+  const params = new URLSearchParams();
+  params.append('q', q);
+  if (lat !== undefined) {
+    params.append('lat', String(lat));
+  }
+  if (lon !== undefined) {
+    params.append('lon', String(lon));
+  }
+
+  return requestJson<StopsSearchResponse>('/api/stops/search', {
+    method: 'GET',
+    queryParams: params,
+    signal,
+  });
+}
+
+export async function getSubscriptions(sessionId: string, signal?: AbortSignal): Promise<string[]> {
+  const params = new URLSearchParams();
+  params.append('session_id', sessionId);
+
+  const res = await requestJson<{ lignes: string[] }>('/api/subscriptions', {
+    method: 'GET',
+    queryParams: params,
+    signal,
+  });
+
+  return res.lignes;
+}
+
+export async function addSubscription(sessionId: string, ligne: string, signal?: AbortSignal): Promise<void> {
+  await requestJson<unknown>('/api/subscriptions', {
+    method: 'POST',
+    body: {
+      session_id: sessionId,
+      ligne: ligne,
+    },
+    signal,
+  });
+}
+
+export async function removeSubscription(sessionId: string, ligne: string, signal?: AbortSignal): Promise<void> {
+  const params = new URLSearchParams();
+  params.append('session_id', sessionId);
+
+  // Endpoint is DELETE /api/subscriptions/{ligne}?session_id=...
+  await requestJson<unknown>(`/api/subscriptions/${encodeURIComponent(ligne)}`, {
+    method: 'DELETE',
+    queryParams: params,
+    signal,
+  });
 }
