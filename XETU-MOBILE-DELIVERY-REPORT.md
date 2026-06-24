@@ -2,11 +2,13 @@
 
 Date: 2026-06-24
 Repo: `C:\Users\DELL\Desktop\xetu-mobile`
-Scope: S-Shell Expo + WebView + minimal foreground location bridge
+Scope: Expo WebView shell + PWA S6 tracking bridge continuation
 
 ## Summary
 
 Implemented the active mobile runtime as an Expo shell that loads the Xetu PWA in `react-native-webview`. The existing React Native visual screens remain in the repo, but they are no longer the execution path, matching D8: the PWA owns the UI and native Expo owns device capabilities.
+
+Follow-up work was completed in the PWA/backend source repo `C:\Users\DELL\Desktop\whatsapp-agent`: the PWA bus bottom sheet now owns the "Je vois ce bus" action, consumes the native `requestLocation` / `locationResult` bridge when present, falls back to browser geolocation, and posts `/tracking/update` with a 30 second client throttle.
 
 ## Changes Made
 
@@ -130,8 +132,44 @@ Existing unrelated/unowned state observed:
 - The origin allowlist protects top-level navigation, but PWA subresource/network behavior still depends on the WebView runtime and backend CORS/server policy.
 - Local fallback URLs are dev-oriented; production must set `EXPO_PUBLIC_PWA_URL`.
 - Push native remains blocked by backend architecture: current backend push is Web Push/VAPID, not Expo/FCM/APNs.
-- S6 `/tracking/update` is not implemented in this repo yet because the UI trigger belongs in the PWA under D8.
+- S6 one-tap GPS tracking is now implemented in the PWA source repo, but still needs a real WebView runtime check on Android/iOS once emulator/device tooling is available.
 
-## Recommended Next Step
+## PWA / Backend Continuation
 
-Add the S6 "Je vois le bus" UI trigger in the PWA (`whatsapp-agent/Dashboard`) so it calls the shell bridge `requestLocation`, receives `locationResult`, and posts `/tracking/update` with client-side throttle >= 30 seconds.
+Repo: `C:\Users\DELL\Desktop\whatsapp-agent`
+Branch: `claude/doryx-session-0426`
+
+Changes made:
+
+- `Dashboard/index.html`: added `#bs-see-bus` and `#bs-see-bus-status` to the bus bottom sheet.
+- `Dashboard/css/components.css`: styled the action button and live status line.
+- `Dashboard/js/api.js`: added `sendTrackingUpdate(...)` for `POST /tracking/update`.
+- `Dashboard/js/home.js`: wired selected-bus tracking, native bridge location request/listener, browser geolocation fallback, backend status handling, and `TRACKING_UPDATE_THROTTLE_MS = 30000`.
+- `tests/test_local_preview_runtime.py`: added a contract test for the PWA/mobile tracking bridge.
+- `.claude/doryx/decisions.md` and `.claude/doryx/debt_active.md`: recorded the S6 decision and the remaining tracking debt without falsifying `.doryx` runtime state.
+- `docs/superpowers/plans/2026-06-24-s6-pwa-mobile-bridge.md`: recorded the implementation plan required by the backend repo workflow.
+
+PWA/backend verification:
+
+- RED test first: `py -3 -m pytest tests/test_local_preview_runtime.py::test_pwa_has_mobile_tracking_bridge_contract -q` failed before implementation with `assert 'id="bs-see-bus"' in html`.
+- Targeted contract test after implementation: PASS, `1 passed in 0.15s`.
+- `Get-Content -Raw Dashboard\js\api.js | node --input-type=module --check`: PASS, no output.
+- `Get-Content -Raw Dashboard\js\home.js | node --input-type=module --check`: PASS, no output.
+- `py -3 -m pytest tests/test_local_preview_runtime.py -q`: PASS, `9 passed in 4.50s`.
+- `py -3 -m pytest tests/test_api_go_integration.py -q`: PASS, `24 passed, 1 warning in 1.03s`.
+- `git diff --check`: PASS, only CRLF warnings.
+- Browser QA at `http://127.0.0.1:8083/index.html?...`: PASS, title `Xëtu`, app DOM present, `Je vois ce bus` button present, status node present.
+
+PWA/backend Doryx status:
+
+- Doryx task was started and advanced through baseline, architecture, decisions, plan, and into `EXECUTE`.
+- Final Doryx closure is blocked: the `doryx` CLI is not in PATH in the current shell, and the Doryx MCP returned `Transport closed`.
+- `.doryx/state.json` remains in `EXECUTE`; it was not manually changed to avoid falsifying gates.
+
+## Remaining Delivery Risks
+
+- Android emulator QA is still blocked because `adb` is not available in PATH.
+- iOS simulator QA is not available from this Windows workspace.
+- Codex Security requires a user action in its workspace ("Start scan"), so no autonomous scan was started.
+- Production still needs `EXPO_PUBLIC_PWA_URL` pointing at the deployed PWA and a real device pass for foreground GPS permissions.
+- Background GPS, native push, and native config-specific work still require a dev build and explicit product/security decisions.
