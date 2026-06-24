@@ -3,6 +3,10 @@
 # dependencies
 node_modules/
 
+# Doryx
+.doryx/
+.doryx-backups/
+
 # Expo
 .expo/
 dist/

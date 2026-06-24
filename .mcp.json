@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "doryx": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "C:\\Users\\DELL\\Desktop\\xetu-mobile\\node_modules\\doryx-mcp\\dist\\src\\index.js"
+      ],
+      "env": {
+        "DORYX_PROJECT_ROOT": "C:\\Users\\DELL\\Desktop\\xetu-mobile"
+      }
+    }
+  }
+}
