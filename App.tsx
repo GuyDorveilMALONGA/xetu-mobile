@@ -83,7 +83,10 @@ export default function App() {
         {buses.map((bus, index) => (
           <View key={`${bus.id ?? bus.ligne ?? 'bus'}-${index}`} style={styles.busCard}>
             <Text style={styles.busLine}>Ligne {String(bus.ligne ?? bus.id ?? index + 1)}</Text>
-            <Text style={styles.busMeta}>{String(bus.arret ?? bus.position ?? 'Position non precisee')}</Text>
+            <Text style={styles.busMeta}>
+              {String(bus.arret_estime ?? bus.arret_signale ?? 'Position non precisee')}
+            </Text>
+            {bus.next_arret ? <Text style={styles.busNext}>Prochain arret: {String(bus.next_arret)}</Text> : null}
             <View style={styles.badgeRow}>
               <Text style={styles.badge}>{String(bus.tracking_mode ?? 'tracking inconnu')}</Text>
               <Text style={styles.badge}>{String(bus.confidence_level ?? 'confiance inconnue')}</Text>
@@ -242,6 +245,11 @@ const styles = StyleSheet.create({
   busMeta: {
     color: '#66706b',
     fontSize: 14,
+    marginBottom: 6,
+  },
+  busNext: {
+    color: '#66706b',
+    fontSize: 13,
     marginBottom: 10,
   },
   badgeRow: {

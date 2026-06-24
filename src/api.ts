@@ -1,9 +1,12 @@
 export type Bus = {
   id?: string | number;
   ligne?: string;
-  arret?: string;
+  arret_signale?: string;
+  arret_estime?: string;
   sens?: string;
-  position?: string;
+  lat?: number | null;
+  lon?: number | null;
+  next_arret?: string | null;
   confidence_level?: string;
   confidence_reason?: string;
   tracking_mode?: string;
