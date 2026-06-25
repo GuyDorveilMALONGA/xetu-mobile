@@ -21,6 +21,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Suite complete `python -m pytest tests/ -q` (whatsapp-agent) : `2 failed, 172 passed` — les 2 echecs (`test_react_loop.py::test_run_passes_empty_history_to_react_loop`, `test_tools_regression.py::TestReportBus::test_valid_line_and_stop_writes_post_signalement_session`) sont preexistants (verifies par `git stash` sur ce slice, memes echecs avant les changements), non lies a cette slice.
 
 - Backend anti-abus vitesse impossible (2026-06-25 22h02, commit backend `36d2b0a`) : `python -m pytest tests/test_tracking_sessions_bus_state.py` -> `7 passed in 1.48s` (Doryx `overall=PASS`, strong). Les pings live retournent `impossible_speed` et n'ecrivent ni `tracking_pings` ni `bus_state` quand la vitesse projetee sur trace depasse 25 m/s.
+- Resolver texte + GPS local (2026-06-25 22h14, commit `aec182c`) : `python scripts\resolve-spatial-query.py --layer xetu_spatial_layer.json --lat 14.73329 --lon -17.46220 --query "Liberte 6 -> Yoff"` + assertion JSON -> `gps resolver assertion ok`. La sortie expose `gps_context.used=true`, `direct_line_candidates=["232"]`, et une preuve d'arret origine `Siege Protection Judiciaire` a 444 m.
 
 ## 0. Gouvernance
 
@@ -172,7 +173,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 
 ## 13. Resolver et IA
 
-- [ ] Resolver texte + GPS local.
+- [x] Resolver texte + GPS local.
 - [x] Cas : `Liberte 6 -> Yoff`.
 - [x] Cas : `Police Dieuppeul -> Sandaga`.
 - [x] Cas : `ESTG -> destination`.
