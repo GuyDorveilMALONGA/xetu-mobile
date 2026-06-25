@@ -20,6 +20,8 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Couche spatiale offline (2026-06-25 21h56, commit `2cde084`) : `python scripts\build-spatial-layer.py ...` -> `stops=768`, `deduped_candidates=6043`, `deduped_landmarks=166`, `landmarks_with_links=165`; `python scripts\resolve-spatial-query.py` passe sur `Liberte 6 -> Yoff`, `Police Dieuppeul -> Sandaga`, `ESTG -> destination`; assertion : tous les landmarks restent `needs_review`.
 - Suite complete `python -m pytest tests/ -q` (whatsapp-agent) : `2 failed, 172 passed` — les 2 echecs (`test_react_loop.py::test_run_passes_empty_history_to_react_loop`, `test_tools_regression.py::TestReportBus::test_valid_line_and_stop_writes_post_signalement_session`) sont preexistants (verifies par `git stash` sur ce slice, memes echecs avant les changements), non lies a cette slice.
 
+- Backend anti-abus vitesse impossible (2026-06-25 22h02, commit backend `36d2b0a`) : `python -m pytest tests/test_tracking_sessions_bus_state.py` -> `7 passed in 1.48s` (Doryx `overall=PASS`, strong). Les pings live retournent `impossible_speed` et n'ecrivent ni `tracking_pings` ni `bus_state` quand la vitesse projetee sur trace depasse 25 m/s.
+
 ## 0. Gouvernance
 
 - [x] Consolider le brainstorm tracking/carte dans `brainstorm-carte-tracking-streaming.md`.
@@ -153,7 +155,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [ ] Signalement simple = confiance basse/moyenne.
 - [ ] `Je suis dedans` = confiance plus haute.
 - [ ] Deux sources proches = confiance plus haute.
-- [ ] Rejeter vitesse impossible.
+- [x] Rejeter vitesse impossible.
 - [x] Rejeter GPS trop loin de la trace.
 - [x] Ne jamais exposer ping brut comme bus live.
 
