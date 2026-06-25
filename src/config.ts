@@ -4,12 +4,16 @@ const rawPwaUrl = process.env.EXPO_PUBLIC_PWA_URL?.trim() ?? '';
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, '');
 export const PWA_URL = rawPwaUrl.replace(/\/+$/, '');
 
-const DEFAULT_PWA_PORT = '8083';
+// Fallback when EXPO_PUBLIC_PWA_URL is unset, e.g. a production build that forgot
+// to set it. Points at the Cloudflare `principal` branch deployment, not the root
+// domain: as of 2026-06-25 https://xetudashbord.pages.dev still serves an older
+// build. Revisit once the root domain is confirmed to match `principal`.
+const DEFAULT_PWA_URL = 'https://principal.xetudashbord.pages.dev';
 const DEFAULT_PWA_URL_BY_PLATFORM: Record<string, string> = {
-  android: `http://10.0.2.2:${DEFAULT_PWA_PORT}`,
-  default: `http://127.0.0.1:${DEFAULT_PWA_PORT}`,
-  ios: `http://127.0.0.1:${DEFAULT_PWA_PORT}`,
-  web: `http://127.0.0.1:${DEFAULT_PWA_PORT}`,
+  android: DEFAULT_PWA_URL,
+  default: DEFAULT_PWA_URL,
+  ios: DEFAULT_PWA_URL,
+  web: DEFAULT_PWA_URL,
 };
 
 function trimTrailingSlash(value: string) {
