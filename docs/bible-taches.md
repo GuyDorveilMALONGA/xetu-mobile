@@ -22,6 +22,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 
 - Backend anti-abus vitesse impossible (2026-06-25 22h02, commit backend `36d2b0a`) : `python -m pytest tests/test_tracking_sessions_bus_state.py` -> `7 passed in 1.48s` (Doryx `overall=PASS`, strong). Les pings live retournent `impossible_speed` et n'ecrivent ni `tracking_pings` ni `bus_state` quand la vitesse projetee sur trace depasse 25 m/s.
 - Resolver texte + GPS local (2026-06-25 22h14, commit `aec182c`) : `python scripts\resolve-spatial-query.py --layer xetu_spatial_layer.json --lat 14.73329 --lon -17.46220 --query "Liberte 6 -> Yoff"` + assertion JSON -> `gps resolver assertion ok`. La sortie expose `gps_context.used=true`, `direct_line_candidates=["232"]`, et une preuve d'arret origine `Siege Protection Judiciaire` a 444 m.
+- Relance reponse canonique (2026-06-25 22h20, commit backend `f1eb67e`) : `python -m pytest tests/test_signalement_relance.py tests/test_session_transition.py` -> `80 passed in 2.13s` (Doryx `overall=PASS`, strong). Une relance envoyee cree `attente_relance_position`; une confirmation `oui` repasse par `record_signalement(source="relance", mode="dedans")`.
 
 ## 0. Gouvernance
 
@@ -78,7 +79,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Relancer seulement les signaleurs `dedans`.
 - [x] Ajouter cooldown par signaleur.
 - [x] Ajouter endpoint ou flow de relance.
-- [ ] La reponse de relance repasse par `record_signalement()`.
+- [x] La reponse de relance repasse par `record_signalement()`.
 - [ ] Si signal expire : inviter a signaler, sans marqueur.
 
 ## 5. Propagation aval et ETA indicatif
