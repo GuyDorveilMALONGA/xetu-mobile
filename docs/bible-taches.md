@@ -17,6 +17,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Backend `bus_state` foreground (2026-06-25 20h43) : `python -m pytest tests/test_tracking_sessions_bus_state.py tests/test_api_buses_trace_eta.py tests/test_tracking_endpoint_mode.py` -> `9 passed in 3.34s` (Doryx `cmd-001`, `overall=PASS`, strong). Ajout schemas SQL `tracking_sessions`, `tracking_pings`, `bus_state`, repository Supabase dans `db/queries.py`, endpoints `/tracking/session/start|ping|stop`, map-match sur trace Dem Dikk, refus off-trace, exposition `tracking_mode="live_gps"` dans `/api/buses` sans phone ni ping brut.
 - PWA tracking foreground (2026-06-25 20h49) : `node --check Dashboard\js\signal.js` -> OK ; grep contrat -> `tracking/session/start`, `tracking/session/ping`, `tracking/session/stop`, `xetu_live_tracking` ; grep no-emoji sur `Dashboard/js`, `Dashboard/css`, `Dashboard/index.html` -> aucun match. Le mode `dedans` avec GPS demarre une session live foreground, envoie un ping immediat puis toutes les 15 secondes, et affiche `Arreter le partage`.
 - PWA consentement live (2026-06-25 20h58, commit backend `aaaa63a`) : `node --check Dashboard\js\signal.js` -> OK ; grep contrat -> `live-consent`, `_liveConsentAccepted`, `tracking/session/start`, `consent:` ; grep no-emoji cible -> aucun match. Le mode `dedans` affiche une case explicite avant live GPS et ne lance pas `/tracking/session/start` si elle n'est pas cochee.
+- Couche spatiale offline (2026-06-25 21h56, commit `2cde084`) : `python scripts\build-spatial-layer.py ...` -> `stops=768`, `deduped_candidates=6043`, `deduped_landmarks=166`, `landmarks_with_links=165`; `python scripts\resolve-spatial-query.py` passe sur `Liberte 6 -> Yoff`, `Police Dieuppeul -> Sandaga`, `ESTG -> destination`; assertion : tous les landmarks restent `needs_review`.
 - Suite complete `python -m pytest tests/ -q` (whatsapp-agent) : `2 failed, 172 passed` — les 2 echecs (`test_react_loop.py::test_run_passes_empty_history_to_react_loop`, `test_tools_regression.py::TestReportBus::test_valid_line_and_stop_writes_post_signalement_session`) sont preexistants (verifies par `git stash` sur ce slice, memes echecs avant les changements), non lies a cette slice.
 
 ## 0. Gouvernance
@@ -161,19 +162,19 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Generer `spatial_candidates.gemini.all.jsonl`.
 - [x] Generer `spatial_landmark_candidates.review.jsonl`.
 - [x] Inclure Renaissance, Police Dieuppeul, ESTG, Sandaga, Liberte 6.
-- [ ] Nettoyer/dedupliquer candidats finaux.
-- [ ] Produire liens repere -> top 3 arrets proches.
+- [x] Nettoyer/dedupliquer candidats finaux.
+- [x] Produire liens repere -> top 3 arrets proches.
 - [ ] Valider 50 reperes prioritaires.
-- [ ] Creer `xetu_spatial_layer.json` ou equivalent.
-- [ ] Brancher resolver sur cette couche.
+- [x] Creer `xetu_spatial_layer.json` ou equivalent.
+- [x] Brancher resolver sur cette couche.
 
 ## 13. Resolver et IA
 
 - [ ] Resolver texte + GPS local.
-- [ ] Cas : `Liberte 6 -> Yoff`.
-- [ ] Cas : `Police Dieuppeul -> Sandaga`.
-- [ ] Cas : `ESTG -> destination`.
-- [ ] Clarification si zone trop vague.
+- [x] Cas : `Liberte 6 -> Yoff`.
+- [x] Cas : `Police Dieuppeul -> Sandaga`.
+- [x] Cas : `ESTG -> destination`.
+- [x] Clarification si zone trop vague.
 - [ ] Chat IA utilise le resolver, pas l'inverse.
 
 ## 14. Beta terrain
