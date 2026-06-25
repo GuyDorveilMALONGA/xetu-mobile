@@ -1,0 +1,25 @@
+{
+  "counts": {
+    "deduped_candidates": 6043,
+    "deduped_landmarks": 166,
+    "hubs": 134,
+    "landmarks_with_links": 165,
+    "raw_candidates": 6916,
+    "raw_landmarks": 166,
+    "stops": 768,
+    "zones": 46
+  },
+  "generated_at": "2026-06-25T21:55:17.518020+00:00",
+  "status_counts": {
+    "candidate_needs_review": 4206,
+    "candidate_validated_from_mvp": 1837,
+    "landmarks_needs_review": 166
+  },
+  "target_examples_present": {
+    "estg": true,
+    "liberte_6": true,
+    "police_dieuppeul": true,
+    "sandaga": true,
+    "yoff": true
+  }
+}
