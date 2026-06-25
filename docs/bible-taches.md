@@ -13,6 +13,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - PWA `whatsapp-agent/Dashboard` : grep contrat -> `XetuNative.requestLocation`, `locationResult`, `mode` dans `/api/report` et mapping `/api/buses`.
 - Backend `whatsapp-agent` projection/ETA : `python -m pytest tests/test_signalement_mode.py tests/test_tracking_endpoint_mode.py tests/test_signalement_relance.py tests/test_api_buses_trace_eta.py` -> `11 passed in 1.44s`; `/api/buses` expose `trace_progress` et `next_stops_eta`.
 - Backend `whatsapp-agent` sens/aval/nuit (2026-06-25 18h13) : `python -m pytest tests/test_signalement_mode.py tests/test_tracking_endpoint_mode.py tests/test_signalement_relance.py tests/test_api_buses_trace_eta.py tests/test_direction_confidence.py tests/test_notify_aval.py tests/test_eta_night_window.py` -> `19 passed in 1.72s` (Doryx `cmd-001`, `overall=PASS`). `/api/buses` expose desormais `direction`, `direction_confidence` (`high`/`low` quand l'arret existe aller+retour, depart par projection GPS si position connue), et `eta_disabled_reason="service_reduit_nuit"` entre 20h et 5h UTC (Dakar=UTC+0). `notify_abonnes()` ne notifie plus les abonnes a arret precis deja depasses par le signalement (filtre aval).
+- PWA relance a la demande (2026-06-25 20h21) : `node --check Dashboard\js\api.js`, `node --check Dashboard\js\home.js`, `node --check Dashboard\js\mobile.js` -> OK ; grep no-emoji sur `Dashboard/js`, `Dashboard/css`, `Dashboard/index.html` -> aucun match. Les cartes bus affichent `Signal recent` / `A confirmer` / `Signal ancien`, proposent `Demander position actuelle` uniquement pour un signal `dedans` vieillissant, appellent `POST /tracking/relance`, puis rafraichissent `/api/buses`.
 - Suite complete `python -m pytest tests/ -q` (whatsapp-agent) : `2 failed, 172 passed` — les 2 echecs (`test_react_loop.py::test_run_passes_empty_history_to_react_loop`, `test_tools_regression.py::TestReportBus::test_valid_line_and_stop_writes_post_signalement_session`) sont preexistants (verifies par `git stash` sur ce slice, memes echecs avant les changements), non lies a cette slice.
 
 ## 0. Gouvernance
@@ -63,9 +64,9 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 
 ## 4. Relance a la demande
 
-- [ ] Detecter quand quelqu'un demande une ligne ou ouvre la carte.
-- [ ] Si signal frais : afficher sans relance.
-- [ ] Si signal vieillissant : dire "apercu a X il y a N min".
+- [x] Detecter quand quelqu'un demande une ligne ou ouvre la carte (cartes bus PWA : action relance contextuelle sur signal `dedans` vieillissant).
+- [x] Si signal frais : afficher sans relance.
+- [x] Si signal vieillissant : dire "apercu a X il y a N min".
 - [x] Identifier si le dernier signaleur etait en mode `dedans`.
 - [x] Relancer seulement les signaleurs `dedans`.
 - [x] Ajouter cooldown par signaleur.
