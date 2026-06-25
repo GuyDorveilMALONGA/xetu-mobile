@@ -1,0 +1,151 @@
+{
+  "output": "spatial_candidates.gemini.all.jsonl",
+  "total_records": 6916,
+  "source_counts": {
+    "xetu_mvp.stop_name": 768,
+    "xetu_mvp.aliases_terrain": 1126,
+    "xetu_mvp.hubs": 108,
+    "xetu_mvp.quartiers": 46,
+    "gemini_suggestion_unverified": 4868
+  },
+  "type_counts": {
+    "stop_name": 768,
+    "stop_alias": 3544,
+    "hub_alias": 108,
+    "zone": 46,
+    "landmark_alias": 2450
+  },
+  "gemini_records": 4868,
+  "gemini_unique_stops": 768,
+  "source_stops": 768,
+  "missing_stops": [],
+  "gemini_by_line": {
+    "1": 507,
+    "10": 346,
+    "13": 314,
+    "23": 600,
+    "232": 473,
+    "4": 447,
+    "6": 748,
+    "7": 472,
+    "8": 568,
+    "9": 393
+  },
+  "files": {
+    "spatial_candidates.jsonl": {
+      "missing": false,
+      "total": 2189,
+      "added": 2048,
+      "duplicates": 141
+    },
+    "spatial_candidates.gemini.limit20.jsonl": {
+      "missing": false,
+      "total": 117,
+      "added": 117,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_020_039.jsonl": {
+      "missing": false,
+      "total": 132,
+      "added": 132,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_040_059.jsonl": {
+      "missing": false,
+      "total": 129,
+      "added": 129,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_060_079.jsonl": {
+      "missing": false,
+      "total": 129,
+      "added": 129,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_080_129.jsonl": {
+      "missing": false,
+      "total": 323,
+      "added": 323,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_130_179.jsonl": {
+      "missing": false,
+      "total": 319,
+      "added": 319,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_180_229.jsonl": {
+      "missing": false,
+      "total": 310,
+      "added": 310,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_230_279.jsonl": {
+      "missing": false,
+      "total": 322,
+      "added": 322,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_280_329.jsonl": {
+      "missing": false,
+      "total": 306,
+      "added": 306,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_330_379.jsonl": {
+      "missing": false,
+      "total": 304,
+      "added": 304,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_380_429.jsonl": {
+      "missing": false,
+      "total": 320,
+      "added": 320,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_430_479.jsonl": {
+      "missing": false,
+      "total": 315,
+      "added": 315,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_480_529.jsonl": {
+      "missing": false,
+      "total": 321,
+      "added": 321,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_530_579.jsonl": {
+      "missing": false,
+      "total": 306,
+      "added": 306,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_580_629.jsonl": {
+      "missing": false,
+      "total": 309,
+      "added": 309,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_630_639.jsonl": {
+      "missing": false,
+      "total": 64,
+      "added": 64,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.batch_640_767.jsonl": {
+      "missing": false,
+      "total": 834,
+      "added": 834,
+      "duplicates": 0
+    },
+    "spatial_candidates.gemini.patch_L8_026_A.jsonl": {
+      "missing": false,
+      "total": 8,
+      "added": 8,
+      "duplicates": 0
+    }
+  },
+  "errors": []
+}

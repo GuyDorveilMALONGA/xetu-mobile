@@ -46,3 +46,26 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Codex / agent scratch
+.codex/
+.codex-previews/
+
+# debug captures and adhoc QA artifacts
+android-*.png
+android-*.xml
+bugreport-*.zip
+report-*.html
+*.err.log
+*.out.log
+
+# generated caches
+/cache/
+scripts/__pycache__/
+
+# spatial candidate generation: keep final outputs, ignore batch/intermediate scratch
+spatial_candidates.gemini.batch_*.jsonl
+spatial_candidates.gemini.batch_*.log
+spatial_candidates.gemini.limit*.jsonl
+spatial_candidates.gemini.patch_*.jsonl
+spatial_candidates.gemini.sample.jsonl
