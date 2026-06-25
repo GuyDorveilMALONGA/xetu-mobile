@@ -14,6 +14,8 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Backend `whatsapp-agent` projection/ETA : `python -m pytest tests/test_signalement_mode.py tests/test_tracking_endpoint_mode.py tests/test_signalement_relance.py tests/test_api_buses_trace_eta.py` -> `11 passed in 1.44s`; `/api/buses` expose `trace_progress` et `next_stops_eta`.
 - Backend `whatsapp-agent` sens/aval/nuit (2026-06-25 18h13) : `python -m pytest tests/test_signalement_mode.py tests/test_tracking_endpoint_mode.py tests/test_signalement_relance.py tests/test_api_buses_trace_eta.py tests/test_direction_confidence.py tests/test_notify_aval.py tests/test_eta_night_window.py` -> `19 passed in 1.72s` (Doryx `cmd-001`, `overall=PASS`). `/api/buses` expose desormais `direction`, `direction_confidence` (`high`/`low` quand l'arret existe aller+retour, depart par projection GPS si position connue), et `eta_disabled_reason="service_reduit_nuit"` entre 20h et 5h UTC (Dakar=UTC+0). `notify_abonnes()` ne notifie plus les abonnes a arret precis deja depasses par le signalement (filtre aval).
 - PWA relance a la demande (2026-06-25 20h21) : `node --check Dashboard\js\api.js`, `node --check Dashboard\js\home.js`, `node --check Dashboard\js\mobile.js` -> OK ; grep no-emoji sur `Dashboard/js`, `Dashboard/css`, `Dashboard/index.html` -> aucun match. Les cartes bus affichent `Signal recent` / `A confirmer` / `Signal ancien`, proposent `Demander position actuelle` uniquement pour un signal `dedans` vieillissant, appellent `POST /tracking/relance`, puis rafraichissent `/api/buses`.
+- Backend `bus_state` foreground (2026-06-25 20h43) : `python -m pytest tests/test_tracking_sessions_bus_state.py tests/test_api_buses_trace_eta.py tests/test_tracking_endpoint_mode.py` -> `9 passed in 3.34s` (Doryx `cmd-001`, `overall=PASS`, strong). Ajout schemas SQL `tracking_sessions`, `tracking_pings`, `bus_state`, repository Supabase dans `db/queries.py`, endpoints `/tracking/session/start|ping|stop`, map-match sur trace Dem Dikk, refus off-trace, exposition `tracking_mode="live_gps"` dans `/api/buses` sans phone ni ping brut.
+- PWA tracking foreground (2026-06-25 20h49) : `node --check Dashboard\js\signal.js` -> OK ; grep contrat -> `tracking/session/start`, `tracking/session/ping`, `tracking/session/stop`, `xetu_live_tracking` ; grep no-emoji sur `Dashboard/js`, `Dashboard/css`, `Dashboard/index.html` -> aucun match. Le mode `dedans` avec GPS demarre une session live foreground, envoie un ping immediat puis toutes les 15 secondes, et affiche `Arreter le partage`.
 - Suite complete `python -m pytest tests/ -q` (whatsapp-agent) : `2 failed, 172 passed` — les 2 echecs (`test_react_loop.py::test_run_passes_empty_history_to_react_loop`, `test_tools_regression.py::TestReportBus::test_valid_line_and_stop_writes_post_signalement_session`) sont preexistants (verifies par `git stash` sur ce slice, memes echecs avant les changements), non lies a cette slice.
 
 ## 0. Gouvernance
@@ -99,18 +101,18 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Envoyer position si GPS disponible.
 - [x] Confiance superieure au simple `vu`.
 - [x] Ping manuel `toujours dedans` via relance backend.
-- [ ] Stop manuel quand l'utilisateur descend.
+- [x] Stop manuel quand l'utilisateur descend (bouton PWA `Arreter le partage`, endpoint `/tracking/session/stop`).
 
 ## 8. Streaming continu optionnel
 
 - [ ] Consentement clair.
-- [ ] Pings toutes les 10-15 secondes en foreground.
-- [ ] Backend recoit pings continus.
-- [ ] Backend map-match chaque ping.
-- [ ] Backend cree/met a jour `bus_state`.
-- [ ] `/api/buses` retourne `bus_state`.
-- [ ] Carte affiche le bus partage par passager.
-- [ ] Stop auto si hors trace ou inactif.
+- [x] Pings toutes les 10-15 secondes en foreground.
+- [x] Backend recoit pings continus.
+- [x] Backend map-match chaque ping.
+- [x] Backend cree/met a jour `bus_state`.
+- [x] `/api/buses` retourne `bus_state`.
+- [x] Carte affiche le bus partage par passager via `/api/buses` (`tracking_mode="live_gps"`).
+- [x] Stop auto si hors trace ou inactif (off-trace stop cote PWA, expiration `bus_state` 45s).
 - [ ] Confiance plus haute si plusieurs contributeurs.
 
 ## 9. Spike A1 map-matching mono-trace
@@ -130,17 +132,17 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 ## 10. Backend sessions propres
 
 - [ ] Definir schema `bus_events`.
-- [ ] Definir schema `tracking_sessions`.
-- [ ] Definir schema `tracking_pings`.
-- [ ] Definir schema `bus_state`.
-- [ ] Ajouter repository Supabase uniquement dans `db/queries.py`.
+- [x] Definir schema `tracking_sessions`.
+- [x] Definir schema `tracking_pings`.
+- [x] Definir schema `bus_state`.
+- [x] Ajouter repository Supabase uniquement dans `db/queries.py`.
 - [ ] Endpoint signalement structure sur trace.
 - [ ] Endpoint propagation/lecture bus events.
-- [ ] Ajouter `POST /tracking/session/start`.
-- [ ] Ajouter `POST /tracking/session/ping`.
-- [ ] Ajouter `POST /tracking/session/stop`.
+- [x] Ajouter `POST /tracking/session/start`.
+- [x] Ajouter `POST /tracking/session/ping`.
+- [x] Ajouter `POST /tracking/session/stop`.
 - [ ] Tester expiration events/state.
-- [ ] Tester rejet hors trace.
+- [x] Tester rejet hors trace.
 
 ## 11. Confiance et anti-abus
 
@@ -150,8 +152,8 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [ ] `Je suis dedans` = confiance plus haute.
 - [ ] Deux sources proches = confiance plus haute.
 - [ ] Rejeter vitesse impossible.
-- [ ] Rejeter GPS trop loin de la trace.
-- [ ] Ne jamais exposer ping brut comme bus live.
+- [x] Rejeter GPS trop loin de la trace.
+- [x] Ne jamais exposer ping brut comme bus live.
 
 ## 12. Couche spatiale Dakar
 
