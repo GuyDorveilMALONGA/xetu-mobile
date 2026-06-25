@@ -5,10 +5,10 @@ export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, '');
 export const PWA_URL = rawPwaUrl.replace(/\/+$/, '');
 
 // Fallback when EXPO_PUBLIC_PWA_URL is unset, e.g. a production build that forgot
-// to set it. Points at the Cloudflare `principal` branch deployment, not the root
-// domain: as of 2026-06-25 https://xetudashbord.pages.dev still serves an older
-// build. Revisit once the root domain is confirmed to match `principal`.
-const DEFAULT_PWA_URL = 'https://principal.xetudashbord.pages.dev';
+// to set it. Points at the Cloudflare root domain — confirmed 2026-06-25 to serve
+// the same build as the `principal` branch preview (identical content, correct
+// markers present, old UI absent).
+const DEFAULT_PWA_URL = 'https://xetudashbord.pages.dev';
 const DEFAULT_PWA_URL_BY_PLATFORM: Record<string, string> = {
   android: DEFAULT_PWA_URL,
   default: DEFAULT_PWA_URL,
