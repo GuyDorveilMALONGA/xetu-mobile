@@ -28,6 +28,8 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Backend `bus_events` TTL (2026-06-26 01h59, commit backend `855e34c`) : `python -m pytest tests/test_bus_events.py tests/test_tracking_sessions_bus_state.py` -> `10 passed in 1.38s` (Doryx `overall=PASS`, strong). Ajout table SQL `bus_events`, repository Supabase public sans `phone`/`session_id`, emission d'un event `live_ping` depuis `/tracking/session/ping`, et lecture TTL via `GET /tracking/bus-events`.
 - PWA signal expire sans marqueur (2026-06-26 02h11, commit backend `1795326`) : `node --check Dashboard\js\home.js`, `node --check Dashboard\js\mobile.js`, scan no-emoji sur fichiers touches -> PASS. Quand `/api/buses` retourne vide, la carte et les listes retirent les marqueurs et invitent a signaler avec une icone CSS.
 - Notifications approche + dedupe (2026-06-26 02h20, commit backend `e542b9f`) : `python -m pytest tests/test_notify_aval.py` -> `4 passed in 1.25s` (Doryx `overall=PASS`, strong). `notify_abonnes()` dedoublonne par destinataire/ligne/arret pendant un TTL court process-local et envoie un message "bus probablement en approche" aux abonnes WhatsApp a un arret aval precis. Limite volontaire : push PWA reste ligne-wide et l'abonnement arret API reste ouvert.
+- Backend contrats tracking finaux Codex (2026-06-26 03h04) : `python -m pytest tests/test_subscriptions_stop.py tests/test_notification_dedup_persistent.py tests/test_structured_report.py tests/test_agent_resolver_tool.py tests/test_tracking_sessions_bus_state.py` -> `18 passed in 1.59s` (Doryx `overall=PASS`, strong). Livraison : abonnement arret via `/api/subscriptions`, dedupe notification persistant via `notification_dedup`, compteur multi-contributeurs pour `bus_state`, endpoint structure `/tracking/report`, et tool IA `resolve_spatial_query`.
+- Privacy/store/monitoring (2026-06-26) : creation de `docs/privacy-store-monitoring.md` avec copy privacy courte, store copy sans surpromesse, evenements de monitoring et indicateurs MVP.
 
 ## 0. Gouvernance
 
@@ -99,11 +101,11 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 ## 6. Notifications ciblees
 
 - [x] Abonnement ligne existe.
-- [ ] Abonnement arret.
+- [x] Abonnement arret.
 - [x] Notification `ligne signalee a X` existe.
 - [x] Notification `bus probablement en approche`.
 - [x] Dedoublonnage notifications.
-- [ ] Respecter TTL.
+- [x] Respecter TTL.
 
 ## 7. Je suis dans le bus
 
@@ -124,7 +126,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] `/api/buses` retourne `bus_state`.
 - [x] Carte affiche le bus partage par passager via `/api/buses` (`tracking_mode="live_gps"`).
 - [x] Stop auto si hors trace ou inactif (off-trace stop cote PWA, expiration `bus_state` 45s).
-- [ ] Confiance plus haute si plusieurs contributeurs.
+- [x] Confiance plus haute si plusieurs contributeurs.
 
 ## 9. Spike A1 map-matching mono-trace
 
@@ -147,7 +149,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Definir schema `tracking_pings`.
 - [x] Definir schema `bus_state`.
 - [x] Ajouter repository Supabase uniquement dans `db/queries.py`.
-- [ ] Endpoint signalement structure sur trace.
+- [x] Endpoint signalement structure sur trace.
 - [x] Endpoint propagation/lecture bus events.
 - [x] Ajouter `POST /tracking/session/start`.
 - [x] Ajouter `POST /tracking/session/ping`.
@@ -184,7 +186,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Cas : `Police Dieuppeul -> Sandaga`.
 - [x] Cas : `ESTG -> destination`.
 - [x] Clarification si zone trop vague.
-- [ ] Chat IA utilise le resolver, pas l'inverse.
+- [x] Chat IA utilise le resolver, pas l'inverse.
 
 ## 14. Beta terrain
 
@@ -199,9 +201,9 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 
 ## 15. Livraison
 
-- [ ] Privacy courte et claire.
-- [ ] Store copy sans surpromesse.
-- [ ] Crash/log monitoring.
+- [x] Privacy courte et claire.
+- [x] Store copy sans surpromesse.
+- [x] Crash/log monitoring.
 - [ ] Tests Android.
 - [ ] Tests iOS si disponible.
 - [ ] Beta fermee.
