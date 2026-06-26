@@ -25,6 +25,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Relance reponse canonique (2026-06-25 22h20, commit backend `f1eb67e`) : `python -m pytest tests/test_signalement_relance.py tests/test_session_transition.py` -> `80 passed in 2.13s` (Doryx `overall=PASS`, strong). Une relance envoyee cree `attente_relance_position`; une confirmation `oui` repasse par `record_signalement(source="relance", mode="dedans")`.
 - P1-5 corroboration (2026-06-26 01h35, commit backend `f8eab86`) : `python -m pytest tests/test_anti_fraud_corroboration.py` -> `2 passed in 0.81s` (Doryx `overall=PASS`, strong). Le test verrouille : `phone` masque en public, disponible dans le select prive, et une autre source au meme arret ajoute `0.1` de confiance.
 - Backend niveaux de confiance `/api/buses` (2026-06-26 01h47, commit backend `95a9b66`) : `python -m pytest tests/test_api_buses_confidence_levels.py tests/test_signalement_mode.py` -> `6 passed, 2 warnings in 3.30s` (Doryx `overall=PASS`, strong). `/api/buses` expose `confidence_level`, `confidence_score`, `confidence_reason`, `confirmation_count`; un `dedans` est plus fort qu'un `vu`, et deux signalements actifs meme ligne/arret montent la confiance sans exposer `phone`.
+- Backend `bus_events` TTL (2026-06-26 01h59, commit backend `855e34c`) : `python -m pytest tests/test_bus_events.py tests/test_tracking_sessions_bus_state.py` -> `10 passed in 1.38s` (Doryx `overall=PASS`, strong). Ajout table SQL `bus_events`, repository Supabase public sans `phone`/`session_id`, emission d'un event `live_ping` depuis `/tracking/session/ping`, et lecture TTL via `GET /tracking/bus-events`.
 
 ## 0. Gouvernance
 
@@ -139,17 +140,17 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 
 ## 10. Backend sessions propres
 
-- [ ] Definir schema `bus_events`.
+- [x] Definir schema `bus_events`.
 - [x] Definir schema `tracking_sessions`.
 - [x] Definir schema `tracking_pings`.
 - [x] Definir schema `bus_state`.
 - [x] Ajouter repository Supabase uniquement dans `db/queries.py`.
 - [ ] Endpoint signalement structure sur trace.
-- [ ] Endpoint propagation/lecture bus events.
+- [x] Endpoint propagation/lecture bus events.
 - [x] Ajouter `POST /tracking/session/start`.
 - [x] Ajouter `POST /tracking/session/ping`.
 - [x] Ajouter `POST /tracking/session/stop`.
-- [ ] Tester expiration events/state.
+- [x] Tester expiration events/state.
 - [x] Tester rejet hors trace.
 
 ## 11. Confiance et anti-abus
