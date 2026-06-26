@@ -50,6 +50,7 @@ yarn-error.*
 # Codex / agent scratch
 .codex/
 .codex-previews/
+.codex-run/
 
 # debug captures and adhoc QA artifacts
 android-*.png
