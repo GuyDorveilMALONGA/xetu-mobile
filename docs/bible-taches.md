@@ -26,6 +26,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - P1-5 corroboration (2026-06-26 01h35, commit backend `f8eab86`) : `python -m pytest tests/test_anti_fraud_corroboration.py` -> `2 passed in 0.81s` (Doryx `overall=PASS`, strong). Le test verrouille : `phone` masque en public, disponible dans le select prive, et une autre source au meme arret ajoute `0.1` de confiance.
 - Backend niveaux de confiance `/api/buses` (2026-06-26 01h47, commit backend `95a9b66`) : `python -m pytest tests/test_api_buses_confidence_levels.py tests/test_signalement_mode.py` -> `6 passed, 2 warnings in 3.30s` (Doryx `overall=PASS`, strong). `/api/buses` expose `confidence_level`, `confidence_score`, `confidence_reason`, `confirmation_count`; un `dedans` est plus fort qu'un `vu`, et deux signalements actifs meme ligne/arret montent la confiance sans exposer `phone`.
 - Backend `bus_events` TTL (2026-06-26 01h59, commit backend `855e34c`) : `python -m pytest tests/test_bus_events.py tests/test_tracking_sessions_bus_state.py` -> `10 passed in 1.38s` (Doryx `overall=PASS`, strong). Ajout table SQL `bus_events`, repository Supabase public sans `phone`/`session_id`, emission d'un event `live_ping` depuis `/tracking/session/ping`, et lecture TTL via `GET /tracking/bus-events`.
+- PWA signal expire sans marqueur (2026-06-26 02h11, commit backend `1795326`) : `node --check Dashboard\js\home.js`, `node --check Dashboard\js\mobile.js`, scan no-emoji sur fichiers touches -> PASS. Quand `/api/buses` retourne vide, la carte et les listes retirent les marqueurs et invitent a signaler avec une icone CSS.
 
 ## 0. Gouvernance
 
@@ -83,7 +84,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - [x] Ajouter cooldown par signaleur.
 - [x] Ajouter endpoint ou flow de relance.
 - [x] La reponse de relance repasse par `record_signalement()`.
-- [ ] Si signal expire : inviter a signaler, sans marqueur.
+- [x] Si signal expire : inviter a signaler, sans marqueur.
 
 ## 5. Propagation aval et ETA indicatif
 
