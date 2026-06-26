@@ -91,11 +91,11 @@ Native -> PWA   : pushTokenResult
 
 > Au-delà de ces messages, on recrée une app native cachée → interdit en Phase 1.
 
-### Réutilisable vs parqué (travail Expo existant)
+### Supprimé vs conservé (travail Expo existant)
 
-- **Réutilisable** : `src/config.ts`, `src/api.ts`, `src/types.gen.ts`, `src/identity.ts` — servent au bridge (identité device) et aux **écrans natifs** futurs (remplacement progressif).
-- **Parqué (superseded par la PWA)** : `src/screens/` (UI RN) et composants liste/cartes RN. Conservés en repo, **hors du chemin d'exécution**.
-- **Contrats §3/§4 inchangés** : ils restent la vérité — la PWA tape les mêmes endpoints, et le bridge / les écrans natifs futurs en dépendent.
+- **Conservé** : `src/config.ts` — seule logique restante, résout `PWA_URL`/`API_BASE_URL` pour le bridge.
+- **Supprimé (code mort, pas parqué)** : `src/api.ts`, `src/types.gen.ts`, `src/identity.ts`, `src/errors.ts`, `scripts/generate-api-types.mjs`, `src/screens/*`, `src/components/*` — le pivot D8 les rendait injoignables ; supprimés plutôt que parqués. Un futur écran natif (Phase 3) serait recréé depuis les contrats §3/§4, pas restauré depuis git.
+- **Contrats §3/§4 inchangés** : ils restent la vérité — la PWA tape les mêmes endpoints ; un futur écran natif ou bridge en dépendrait directement.
 
 ### Phases
 
@@ -124,7 +124,7 @@ Le backend **n'a pas d'auth**. Il utilise deux clés selon l'endpoint :
 
 ## 3. Référence de contrat API (dérivée du code, 2026-06-24)
 
-Base URL : `EXPO_PUBLIC_API_BASE_URL` (URL publique Railway du backend). En natif Android émulateur vers backend local : `http://10.0.2.2:<port>`. CORS ne concerne **que** l'Expo web ; le natif en est exempt.
+Base URL : `EXPO_PUBLIC_API_BASE_URL` — backend hébergé sur Render, confirmé live : `https://agent-des-transport-xetu.onrender.com` (voir §7.10). En dev full-local uniquement, `config.ts` auto-dérive l'hôte Metro ; ne jamais hardcoder `10.0.2.2` (alias émulateur AVD only, casse device/iOS/web). CORS ne concerne **que** l'Expo web ; le natif en est exempt.
 
 | Méthode | Chemin | Params / Body | Réponses |
 |---|---|---|---|
@@ -152,15 +152,11 @@ Base URL : `EXPO_PUBLIC_API_BASE_URL` (URL publique Railway du backend). En nati
 
 ---
 
-## 4. Types partagés (`src/types.gen.ts` — générés depuis OpenAPI)
+## 4. Types partagés — contrat de référence (pas de client typé actif)
 
-Source de vérité actuelle :
+`src/types.gen.ts` et le script `generate:api-types` ont été supprimés avec le reste du code natif mort (pivot D8 complet). Il n'y a aujourd'hui **aucun client API mobile** : la PWA (`whatsapp-agent/Dashboard/`) appelle le backend directement en JS ; le shell mobile ne fait que charger l'URL PWA + bridge GPS.
 
-- Backend : `whatsapp-agent/api/schemas.py` expose les `response_model` FastAPI mobile-facing.
-- Mobile : `src/types.gen.ts` est généré depuis `/openapi.json`.
-- Commande : `npm run generate:api-types -- <backend-openapi-url-or-file>`.
-
-Ne pas recréer ces types à la main dans l'app. Les extraits ci-dessous décrivent les formes métier attendues ; le code doit importer les types depuis `src/types.gen.ts`.
+Les extraits ci-dessous restent la **référence de contrat** (dérivée de `whatsapp-agent/api/schemas.py`) pour auditer la PWA ou écrire un futur écran natif (Phase 3). Si un client typé mobile redevient nécessaire, régénérer depuis `/openapi.json` à ce moment-là — ne pas le recréer par anticipation.
 
 ```ts
 // GET /api/buses
@@ -263,22 +259,9 @@ Convention par slice : **But · User story · Contrat · UI/états · Acceptatio
 
 ---
 
-### S0 — Socle & client API typé  *(fait — OpenAPI généré)*
+### S0 — Socle & client API typé  *(retiré — superseded par D8)*
 
-- **But** : transformer le scaffold en base produit stable et typée.
-- **Scope**
-  - `src/config.ts` : lit `EXPO_PUBLIC_API_BASE_URL`, expose `apiBaseUrl`, `isConfigured`, flags publics.
-  - `src/types.gen.ts` : types générés depuis `/openapi.json` (§4).
-  - `src/api.ts` : client HTTP strict ; `Bus` vient de `components['schemas']['BusPosition']`.
-  - `src/errors.ts` : `ApiError { kind: 'network'|'timeout'|'http'|'parse'; status?; retryAfter?; message }`.
-  - `src/identity.ts` : `getDeviceId()` (UUID v4 persisté, `expo` AsyncStorage / SecureStore non requis car non-secret).
-- **États transverses** : helper `AsyncState<T> = idle | loading | success(T) | error(ApiError)`.
-- **Acceptation**
-  - `getApiBaseUrl()` vide → l'app affiche un état "API non configurée" actionnable, jamais un crash.
-  - Un appel qui timeout produit `ApiError.kind='timeout'` (vérifiable en pointant une URL morte).
-- **Vérif** : `npx.cmd tsc --noEmit` · `npx.cmd expo config --type public` · capture écran web "API non configurée".
-- **Hors-scope** : retries, cache.
-- **Statut** : `normalizeBuses` est strict sur `{buses}` ; maintenir cette règle avec les types générés.
+> **Sous D8** : ce slice décrivait un client HTTP natif typé (`api.ts`, `types.gen.ts`, `errors.ts`, `identity.ts`). Ces fichiers ont été **supprimés** — la PWA appelle le backend elle-même, le shell n'a pas de client HTTP. Seul `src/config.ts` (résolution `PWA_URL`/`API_BASE_URL` pour le bridge) subsiste. Ce slice n'a plus de scope d'exécution ; gardé comme trace de décision.
 
 ---
 
@@ -487,10 +470,10 @@ Une coquille qui charge une PWA distante peut être refusée par Apple (4.2 « m
 La WebView ne doit charger/naviguer que vers l'**origine PWA + origine backend** connues. Bloquer toute autre navigation (`onShouldStartLoadWithRequest`), pas d'ouverture d'URL arbitraire, pas d'injection de secret dans le bundle web. Le bridge n'expose que les capacités de D8.c, rien d'autre.
 
 ### 7.9 Double identité PWA ↔ natif  **[seam à résoudre plus tard]**
-La PWA a sa propre identité web (`session.js`, `phone = web_<ip>`) ; le natif a `identity.ts` (UUID device). En Phase 1 la PWA garde son identité web (fonctionne). À l'arrivée des écrans natifs / du push natif, les deux stores doivent **converger** (le natif fournit l'identité device à la PWA via un message bridge ultérieur). Non bloquant en Phase 1, mais nommé pour éviter la dérive.
+La PWA a sa propre identité web (`session.js`, `phone = web_<ip>`) ; le natif devra à terme gérer son propre UUID device. En Phase 1 la PWA garde son identité web (fonctionne). À l'arrivée des écrans natifs / du push natif, les deux stores doivent **converger** (le natif fournit l'identité device à la PWA via un message bridge ultérieur). Non bloquant en Phase 1, mais nommé pour éviter la dérive.
 
-### 7.10 Backend : URL à confirmer (Railway vs Render)  **[à vérifier]**
-§3 indique « Railway » ; la PWA pointe par défaut sur `agent-des-transport-xetu.onrender.com` (Render). À confirmer côté `whatsapp-agent` puis aligner §3 / `EXPO_PUBLIC_API_BASE_URL` (règle AGENTS.md : inspecter le backend, puis corriger le PRD).
+### 7.10 Backend : Render confirmé  **[résolu 2026-06-26]**
+Vérifié par curl direct : `https://agent-des-transport-xetu.onrender.com/health` → `200 {status:"ok", version:"9.0", db:true}` ; `/api/buses`, `/api/stops/search` → `200` avec données réelles. C'est l'URL Render qui sert. La mention « Railway » en §3 était stale (un `railway.toml` subsiste dans le repo backend — résidu de migration probable, hors-scope mobile) ; §3 corrigé pour pointer Render.
 
 ---
 

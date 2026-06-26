@@ -1,8 +1,23 @@
-const rawApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? '';
-const rawPwaUrl = process.env.EXPO_PUBLIC_PWA_URL?.trim() ?? '';
+import Constants from 'expo-constants';
 
-export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, '');
-export const PWA_URL = rawPwaUrl.replace(/\/+$/, '');
+function getMetroHost() {
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost || Constants.manifest?.debuggerHost;
+  if (typeof hostUri === 'string') {
+    return hostUri.split(':')[0];
+  }
+  return null;
+}
+
+const rawApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || '';
+const rawPwaUrl = process.env.EXPO_PUBLIC_PWA_URL?.trim() || '';
+
+const metroHost = getMetroHost();
+
+const fallbackApiBaseUrl = metroHost ? `http://${metroHost}:8000` : '';
+const fallbackPwaUrl = metroHost ? `http://${metroHost}:8090` : 'https://xetudashbord.pages.dev';
+
+export const API_BASE_URL = (rawApiBaseUrl || fallbackApiBaseUrl).replace(/\/+$/, '');
+export const PWA_URL = (rawPwaUrl || fallbackPwaUrl).replace(/\/+$/, '');
 
 // Fallback when EXPO_PUBLIC_PWA_URL is unset, e.g. a production build that forgot
 // to set it. Points at the Cloudflare root domain — confirmed 2026-06-25 to serve

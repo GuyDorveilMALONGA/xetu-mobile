@@ -108,6 +108,7 @@ export default function App() {
   const webViewRef = useRef<WebView>(null);
   const [webViewKey, setWebViewKey] = useState(0);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
   const pwaUrl = useMemo(() => getPwaUrl(Platform.OS), []);
   const allowedOrigins = useMemo(() => getAllowedWebViewOrigins(Platform.OS), []);
@@ -196,8 +197,20 @@ export default function App() {
   const retry = useCallback(() => {
     setBlockedUrl(null);
     setLoadFailed(false);
+    setRetryCount(0);
     setWebViewKey((key) => key + 1);
   }, []);
+
+  const handleWebViewError = useCallback(() => {
+    if (retryCount < 2) {
+      setTimeout(() => {
+        setWebViewKey((key) => key + 1);
+        setRetryCount((count) => count + 1);
+      }, 1500 * (retryCount + 1));
+    } else {
+      setLoadFailed(true);
+    }
+  }, [retryCount]);
 
   if (Platform.OS === 'web') {
     return (
@@ -238,9 +251,10 @@ export default function App() {
               setLoadFailed(false);
               setBlockedUrl(null);
             }}
+            onLoad={() => setRetryCount(0)}
             onLoadEnd={sendCapabilities}
-            onError={() => setLoadFailed(true)}
-            onHttpError={() => setLoadFailed(true)}
+            onError={handleWebViewError}
+            onHttpError={handleWebViewError}
             onMessage={handleMessage}
             onShouldStartLoadWithRequest={handleShouldStartLoad}
             startInLoadingState
