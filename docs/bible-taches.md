@@ -24,6 +24,7 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 - Resolver texte + GPS local (2026-06-25 22h14, commit `aec182c`) : `python scripts\resolve-spatial-query.py --layer xetu_spatial_layer.json --lat 14.73329 --lon -17.46220 --query "Liberte 6 -> Yoff"` + assertion JSON -> `gps resolver assertion ok`. La sortie expose `gps_context.used=true`, `direct_line_candidates=["232"]`, et une preuve d'arret origine `Siege Protection Judiciaire` a 444 m.
 - Relance reponse canonique (2026-06-25 22h20, commit backend `f1eb67e`) : `python -m pytest tests/test_signalement_relance.py tests/test_session_transition.py` -> `80 passed in 2.13s` (Doryx `overall=PASS`, strong). Une relance envoyee cree `attente_relance_position`; une confirmation `oui` repasse par `record_signalement(source="relance", mode="dedans")`.
 - P1-5 corroboration (2026-06-26 01h35, commit backend `f8eab86`) : `python -m pytest tests/test_anti_fraud_corroboration.py` -> `2 passed in 0.81s` (Doryx `overall=PASS`, strong). Le test verrouille : `phone` masque en public, disponible dans le select prive, et une autre source au meme arret ajoute `0.1` de confiance.
+- Backend niveaux de confiance `/api/buses` (2026-06-26 01h47, commit backend `95a9b66`) : `python -m pytest tests/test_api_buses_confidence_levels.py tests/test_signalement_mode.py` -> `6 passed, 2 warnings in 3.30s` (Doryx `overall=PASS`, strong). `/api/buses` expose `confidence_level`, `confidence_score`, `confidence_reason`, `confirmation_count`; un `dedans` est plus fort qu'un `vu`, et deux signalements actifs meme ligne/arret montent la confiance sans exposer `phone`.
 
 ## 0. Gouvernance
 
@@ -154,10 +155,10 @@ Ce fichier est la checklist vivante. A chaque fois qu'une tache est realisee et 
 ## 11. Confiance et anti-abus
 
 - [x] Corriger dette backend P1-5 corroboration cassee.
-- [ ] Definir seuils `low`, `medium`, `high`.
-- [ ] Signalement simple = confiance basse/moyenne.
-- [ ] `Je suis dedans` = confiance plus haute.
-- [ ] Deux sources proches = confiance plus haute.
+- [x] Definir seuils `low`, `medium`, `high`.
+- [x] Signalement simple = confiance basse/moyenne.
+- [x] `Je suis dedans` = confiance plus haute.
+- [x] Deux sources proches = confiance plus haute.
 - [x] Rejeter vitesse impossible.
 - [x] Rejeter GPS trop loin de la trace.
 - [x] Ne jamais exposer ping brut comme bus live.
