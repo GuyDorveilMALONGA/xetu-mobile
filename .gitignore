@@ -51,10 +51,13 @@ yarn-error.*
 .codex/
 .codex-previews/
 .codex-run/
+.agents/
+.claude/launch.json
 
 # debug captures and adhoc QA artifacts
 android-*.png
 android-*.xml
+expo-iphone-qr.png
 bugreport-*.zip
 report-*.html
 *.err.log

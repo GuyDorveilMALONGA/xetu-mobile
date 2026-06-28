@@ -73,7 +73,7 @@ npm run generate:api-types -- http://localhost:8000/openapi.json
 
 The generated file is `src/types.gen.ts`. If the backend is deployed, pass the deployed `/openapi.json` URL instead.
 
-## Verification
+## Vérification
 
 Run focused checks before committing:
 

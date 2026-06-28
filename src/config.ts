@@ -1,7 +1,21 @@
 import Constants from 'expo-constants';
 
+type LegacyManifest = {
+  debuggerHost?: string;
+};
+
+type ManifestWithExpoGo = {
+  extra?: {
+    expoGo?: {
+      debuggerHost?: string;
+    };
+  };
+};
+
 function getMetroHost() {
-  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost || Constants.manifest?.debuggerHost;
+  const manifest2 = Constants.manifest2 as ManifestWithExpoGo | null;
+  const legacyManifest = Constants.manifest as LegacyManifest | null;
+  const hostUri = Constants.expoConfig?.hostUri || manifest2?.extra?.expoGo?.debuggerHost || legacyManifest?.debuggerHost;
   if (typeof hostUri === 'string') {
     return hostUri.split(':')[0];
   }

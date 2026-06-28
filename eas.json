@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "version": ">= 16.0.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_PWA_URL": "https://xetudashbord.pages.dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://web-production-ccab8.up.railway.app"
+      }
+    },
+    "testflight": {
+      "developmentClient": true,
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_PWA_URL": "https://xetudashbord.pages.dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://web-production-ccab8.up.railway.app"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_PWA_URL": "https://xetudashbord.pages.dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://web-production-ccab8.up.railway.app"
+      }
+    }
+  },
+  "submit": {
+    "testflight": {
+      "ios": {}
+    },
+    "production": {
+      "ios": {}
+    }
+  }
+}

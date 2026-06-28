@@ -228,10 +228,10 @@ export default function App() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>PWA injoignable</Text>
           <Text style={styles.errorText}>
-            Impossible de charger Xetu depuis {pwaUrl}. Verifie que la PWA est lancee et accessible depuis cet appareil.
+            Impossible de charger Xetu depuis {pwaUrl}. Vérifie que la PWA est lancée et accessible depuis cet appareil.
           </Text>
           <Pressable accessibilityRole="button" onPress={retry} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Reessayer</Text>
+            <Text style={styles.primaryButtonText}>Réessayer</Text>
           </Pressable>
         </View>
       ) : (
@@ -268,7 +268,7 @@ export default function App() {
 
           {blockedUrl ? (
             <View style={styles.blockedBanner}>
-              <Text style={styles.blockedText}>Navigation bloquee hors PWA: {getOrigin(blockedUrl) ?? blockedUrl}</Text>
+              <Text style={styles.blockedText}>Navigation bloquée hors PWA: {getOrigin(blockedUrl) ?? blockedUrl}</Text>
             </View>
           ) : null}
         </>
