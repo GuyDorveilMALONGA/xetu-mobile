@@ -46,4 +46,15 @@ describe('WsService', () => {
     expect(storeService.wsStatus()).toBe('connecting');
     expect(mockWebSocketConstructor).toHaveBeenCalled();
   });
+
+  it('should not open a websocket when the session token is missing', async () => {
+    sessionServiceSpy.ensureSession.and.returnValue(Promise.resolve({ sessionId: 'web_test', token: '' }));
+    const mockWebSocketConstructor = jasmine.createSpy('WebSocket');
+    (window as any).WebSocket = mockWebSocketConstructor;
+
+    await service.connect();
+
+    expect(storeService.wsStatus()).toBe('failed');
+    expect(mockWebSocketConstructor).not.toHaveBeenCalled();
+  });
 });

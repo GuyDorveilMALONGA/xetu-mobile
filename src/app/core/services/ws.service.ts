@@ -41,6 +41,12 @@ export class WsService {
 
     try {
       const { sessionId, token } = await this.sessionService.ensureSession();
+      if (!token) {
+        console.warn('WebSocket connection skipped: no valid session token available.');
+        this.storeService.wsStatus.set('failed');
+        return;
+      }
+
       const wsBaseUrl = environment.wsBase.replace(/^http/, 'ws');
       const url = `${wsBaseUrl}/ws/${sessionId}?token=${encodeURIComponent(token)}`;
 
