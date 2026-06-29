@@ -1,4 +1,4 @@
-﻿/* src/theme/xetu.scss */
+/* src/theme/xetu.scss */
 
 /* â”€â”€ Xetu CSS icons (portÃ©es du dashboard, css/components.css) â”€â”€
    Remplacent les emojis par des formes CSS pures, sans dÃ©pendance SVG/font.
@@ -523,5 +523,19 @@
   background: rgba(255, 71, 87, 0.12);
   color: #FF4757;
   border: 1px solid rgba(255, 71, 87, 0.25);
+}
+
+/* Padding pour les pages principales sous la tab-bar flottante */
+.itineraire-content,
+.chat-content,
+.mylines-content {
+  --padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+/* Padding top pour les pages sous le header non-transparent */
+.itineraire-content,
+.chat-content,
+.mylines-content {
+  --padding-top: calc(50px + env(safe-area-inset-top));
 }
 

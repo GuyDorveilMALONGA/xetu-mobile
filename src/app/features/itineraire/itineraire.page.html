@@ -48,189 +48,189 @@
 
           <button class="itin-reset-link" type="button" (click)="resetTrip()">Modifier le trajet</button>
         </div>
-      }
-
-      <div class="itin-fields-card">
-        <div class="itin-field-row" [class.itin-field-active]="activeField() === 'from'" (click)="activateField('from')">
-          <div class="itin-field-dot itin-field-dot--from"></div>
-          <div class="itin-field-value">
-            @if (activeField() === 'from') {
-              <input
-                class="itin-field-input"
-                data-field="from"
-                type="text"
-                placeholder="Quartier, hub ou arrêt"
-                autocomplete="off"
-                maxlength="60"
-                [value]="fromQuery()"
-                (input)="onFieldInput('from', $any($event.target).value)"
-                (blur)="onFieldBlur('from')" />
-            } @else if (fromQuery()) {
-              <span class="itin-field-selected">{{ fromQuery() }}</span>
-              <button class="itin-field-clear" type="button" aria-label="Effacer le départ" (click)="clearField('from', $event)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            } @else {
-              <span class="itin-field-placeholder">Vous êtes où ?</span>
-            }
-          </div>
-        </div>
-
-        <div class="itin-swap-wrap">
-          <button class="itin-swap-btn" type="button" aria-label="Inverser départ et destination" (click)="swap()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 4 3 8M7 4l4 4M17 20V4M17 20l4-4M17 20l-4-4"/></svg>
-          </button>
-        </div>
-
-        <div class="itin-field-row" [class.itin-field-active]="activeField() === 'to'" (click)="activateField('to')">
-          <div class="itin-field-dot itin-field-dot--to"></div>
-          <div class="itin-field-value">
-            @if (activeField() === 'to') {
-              <input
-                class="itin-field-input"
-                data-field="to"
-                type="text"
-                placeholder="Quartier, hub ou arrêt"
-                autocomplete="off"
-                maxlength="60"
-                [value]="toQuery()"
-                (input)="onFieldInput('to', $any($event.target).value)"
-                (blur)="onFieldBlur('to')" />
-            } @else if (toQuery()) {
-              <span class="itin-field-selected">{{ toQuery() }}</span>
-              <button class="itin-field-clear" type="button" aria-label="Effacer la destination" (click)="clearField('to', $event)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            } @else {
-              <span class="itin-field-placeholder">Vous allez où ?</span>
-            }
-          </div>
-        </div>
-      </div>
-
-      @if (showFreq()) {
-        <div class="itin-freq">
-          <div class="itin-freq-title">Destinations fréquentes</div>
-          @for (item of freqShortcuts; track item.from) {
-            <button class="itin-freq-item" type="button" (click)="selectFreq(item.from, item.to)">
-              <div class="itin-freq-icon" aria-hidden="true">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
-              </div>
-              <div>
-                <div class="itin-freq-main">{{ item.from }} → {{ item.to }}</div>
-                <div class="itin-freq-sub">Itinéraire suggéré</div>
-              </div>
-            </button>
-          }
-        </div>
-      }
-
-      <div class="itin-search-results-wrap">
-        @if (activeField()) {
-          @if (isSearching()) {
-            <div class="itin-search-empty">
-              <span class="itin-search-empty-icon itin-search-empty-icon--loading" aria-hidden="true"></span>
-              <div class="itin-search-empty-txt">Recherche...</div>
-            </div>
-          } @else if ((activeField() === 'from' ? fromQuery() : toQuery()).trim().length >= 2) {
-            <div class="itin-search-tabs">
-              <button type="button" class="itin-search-tab" [class.active]="searchTab() === 'arrets'" (click)="setSearchTab('arrets')">Lieux ({{ searchResults().length }})</button>
-              <button type="button" class="itin-search-tab" [class.active]="searchTab() === 'lignes'" (click)="setSearchTab('lignes')">Lignes ({{ lignesResults().length }})</button>
-            </div>
-
-            @if (searchTab() === 'arrets') {
-              @if (searchResults().length === 0) {
-                <div class="itin-search-empty">
-                  <span class="itin-search-empty-icon itin-search-empty-icon--search" aria-hidden="true"></span>
-                  <div class="itin-search-empty-txt">Aucun lieu pour « {{ activeField() === 'from' ? fromQuery() : toQuery() }} »</div>
-                </div>
+      } @else {
+        <div class="itin-fields-card">
+          <div class="itin-field-row" [class.itin-field-active]="activeField() === 'from'" (click)="activateField('from')">
+            <div class="itin-field-dot itin-field-dot--from"></div>
+            <div class="itin-field-value">
+              @if (activeField() === 'from') {
+                <input
+                  class="itin-field-input"
+                  data-field="from"
+                  type="text"
+                  placeholder="Quartier, hub ou arrêt"
+                  autocomplete="off"
+                  maxlength="60"
+                  [value]="fromQuery()"
+                  (input)="onFieldInput('from', $any($event.target).value)"
+                  (blur)="onFieldBlur('from')" />
+              } @else if (fromQuery()) {
+                <span class="itin-field-selected">{{ fromQuery() }}</span>
+                <button class="itin-field-clear" type="button" aria-label="Effacer le départ" (click)="clearField('from', $event)">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
               } @else {
-                <div class="itin-search-legend">
-                  <div class="itin-legend-item">
-                    <span class="itin-legend-dot" style="background: var(--green); box-shadow: 0 0 0 3px rgba(0,214,127,0.2);"></span>
-                    Bus signalé récemment
-                  </div>
-                  <div class="itin-legend-item">
-                    <span class="itin-legend-dot" style="background: var(--orange);"></span>
-                    Arrêt normal
-                  </div>
-                  <div class="itin-legend-item">
-                    <span class="itin-legend-dot" style="background: var(--yellow);"></span>
-                    Quartier / hub
-                  </div>
+                <span class="itin-field-placeholder">Vous êtes où ?</span>
+              }
+            </div>
+          </div>
+
+          <div class="itin-swap-wrap">
+            <button class="itin-swap-btn" type="button" aria-label="Inverser départ et destination" (click)="swap()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 4 3 8M7 4l4 4M17 20V4M17 20l4-4M17 20l-4-4"/></svg>
+            </button>
+          </div>
+
+          <div class="itin-field-row" [class.itin-field-active]="activeField() === 'to'" (click)="activateField('to')">
+            <div class="itin-field-dot itin-field-dot--to"></div>
+            <div class="itin-field-value">
+              @if (activeField() === 'to') {
+                <input
+                  class="itin-field-input"
+                  data-field="to"
+                  type="text"
+                  placeholder="Quartier, hub ou arrêt"
+                  autocomplete="off"
+                  maxlength="60"
+                  [value]="toQuery()"
+                  (input)="onFieldInput('to', $any($event.target).value)"
+                  (blur)="onFieldBlur('to')" />
+              } @else if (toQuery()) {
+                <span class="itin-field-selected">{{ toQuery() }}</span>
+                <button class="itin-field-clear" type="button" aria-label="Effacer la destination" (click)="clearField('to', $event)">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              } @else {
+                <span class="itin-field-placeholder">Vous allez où ?</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (showFreq()) {
+          <div class="itin-freq">
+            <div class="itin-freq-title">Destinations fréquentes</div>
+            @for (item of freqShortcuts; track item.from) {
+              <button class="itin-freq-item" type="button" (click)="selectFreq(item.from, item.to)">
+                <div class="itin-freq-icon" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
                 </div>
-                <div class="itin-search-results">
-                  @for (stop of searchResults(); track stop.nom) {
-                    <div class="itin-arret-card" [class.itin-arret-card--signale]="stopHasRecent(stop)" [class.itin-arret-card--zone]="isZoneStop(stop)">
-                      <div class="itin-arret-head">
-                        <div class="itin-arret-dot" [class.itin-arret-dot--signale]="stopHasRecent(stop)" [class.itin-arret-dot--zone]="isZoneStop(stop)"></div>
-                        <div class="itin-arret-name">{{ stop.nom }}</div>
-                        @if (stop.distance_m !== null) {
-                          <div class="itin-arret-dist">{{ formatDistance(stop.distance_m) }}</div>
-                        }
-                      </div>
-                      @if (isZoneStop(stop) || stop.lignes.length > 0) {
-                        <div class="itin-arret-lines">
-                          @if (isZoneStop(stop)) {
-                            <button type="button" class="itin-line-badge-zone" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
-                              {{ stop.type === 'hub' ? 'Hub transport' : 'Zone connue' }}{{ stop.source ? ' · ' + stop.source : '' }}
-                            </button>
-                          }
-                          @for (ligne of stop.lignes; track ligne.numero) {
-                            @if (ligne.has_recent) {
-                              <button type="button" class="itin-line-badge-sig" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
-                                <span class="itin-line-badge-sig-dot"></span>
-                                Bus {{ ligne.numero }}{{ ligne.last_seen_min !== null ? ' · ' + formatLastSeen(ligne.last_seen_min) : '' }}
-                              </button>
-                            } @else {
-                              <button type="button" class="itin-line-badge-norm" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
-                                {{ ligne.numero }}
-                              </button>
-                            }
+                <div>
+                  <div class="itin-freq-main">{{ item.from }} → {{ item.to }}</div>
+                  <div class="itin-freq-sub">Itinéraire suggéré</div>
+                </div>
+              </button>
+            }
+          </div>
+        }
+
+        <div class="itin-search-results-wrap">
+          @if (activeField()) {
+            @if (isSearching()) {
+              <div class="itin-search-empty">
+                <span class="itin-search-empty-icon itin-search-empty-icon--loading" aria-hidden="true"></span>
+                <div class="itin-search-empty-txt">Recherche...</div>
+              </div>
+            } @else if ((activeField() === 'from' ? fromQuery() : toQuery()).trim().length >= 2) {
+              <div class="itin-search-tabs">
+                <button type="button" class="itin-search-tab" [class.active]="searchTab() === 'arrets'" (click)="setSearchTab('arrets')">Lieux ({{ searchResults().length }})</button>
+                <button type="button" class="itin-search-tab" [class.active]="searchTab() === 'lignes'" (click)="setSearchTab('lignes')">Lignes ({{ lignesResults().length }})</button>
+              </div>
+
+              @if (searchTab() === 'arrets') {
+                @if (searchResults().length === 0) {
+                  <div class="itin-search-empty">
+                    <span class="itin-search-empty-icon itin-search-empty-icon--search" aria-hidden="true"></span>
+                    <div class="itin-search-empty-txt">Aucun lieu pour « {{ activeField() === 'from' ? fromQuery() : toQuery() }} »</div>
+                  </div>
+                } @else {
+                  <div class="itin-search-legend">
+                    <div class="itin-legend-item">
+                      <span class="itin-legend-dot" style="background: var(--green); box-shadow: 0 0 0 3px rgba(0,214,127,0.2);"></span>
+                      Bus signalé récemment
+                    </div>
+                    <div class="itin-legend-item">
+                      <span class="itin-legend-dot" style="background: var(--orange);"></span>
+                      Arrêt normal
+                    </div>
+                    <div class="itin-legend-item">
+                      <span class="itin-legend-dot" style="background: var(--yellow);"></span>
+                      Quartier / hub
+                    </div>
+                  </div>
+                  <div class="itin-search-results">
+                    @for (stop of searchResults(); track stop.nom) {
+                      <div class="itin-arret-card" [class.itin-arret-card--signale]="stopHasRecent(stop)" [class.itin-arret-card--zone]="isZoneStop(stop)">
+                        <div class="itin-arret-head">
+                          <div class="itin-arret-dot" [class.itin-arret-dot--signale]="stopHasRecent(stop)" [class.itin-arret-dot--zone]="isZoneStop(stop)"></div>
+                          <div class="itin-arret-name">{{ stop.nom }}</div>
+                          @if (stop.distance_m !== null) {
+                            <div class="itin-arret-dist">{{ formatDistance(stop.distance_m) }}</div>
                           }
                         </div>
-                      }
-                      <div class="itin-arret-sep"></div>
-                      <div class="itin-arret-footer">
-                        @if (activeField() === 'from') {
-                          <button type="button" class="itin-btn-from" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 13-8 13S4 15.25 4 10a8 8 0 0 1 8-8z"/></svg>
-                            Partir d'ici
-                          </button>
-                        } @else {
-                          <button type="button" class="itin-btn-to" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
-                            Vers ici
-                          </button>
+                        @if (isZoneStop(stop) || stop.lignes.length > 0) {
+                          <div class="itin-arret-lines">
+                            @if (isZoneStop(stop)) {
+                              <button type="button" class="itin-line-badge-zone" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
+                                {{ stop.type === 'hub' ? 'Hub transport' : 'Zone connue' }}{{ stop.source ? ' · ' + stop.source : '' }}
+                              </button>
+                            }
+                            @for (ligne of stop.lignes; track ligne.numero) {
+                              @if (ligne.has_recent) {
+                                <button type="button" class="itin-line-badge-sig" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
+                                  <span class="itin-line-badge-sig-dot"></span>
+                                  Bus {{ ligne.numero }}{{ ligne.last_seen_min !== null ? ' · ' + formatLastSeen(ligne.last_seen_min) : '' }}
+                                </button>
+                              } @else {
+                                <button type="button" class="itin-line-badge-norm" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
+                                  {{ ligne.numero }}
+                                </button>
+                              }
+                            }
+                          </div>
                         }
+                        <div class="itin-arret-sep"></div>
+                        <div class="itin-arret-footer">
+                          @if (activeField() === 'from') {
+                            <button type="button" class="itin-btn-from" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 13-8 13S4 15.25 4 10a8 8 0 0 1 8-8z"/></svg>
+                              Partir d'ici
+                            </button>
+                          } @else {
+                            <button type="button" class="itin-btn-to" (mousedown)="pickStop(stop.nom, $event)" (touchend)="pickStop(stop.nom, $event)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                              Vers ici
+                            </button>
+                          }
+                        </div>
                       </div>
-                    </div>
-                  }
-                </div>
-              }
-            } @else {
-              @if (lignesResults().length === 0) {
-                <div class="itin-search-empty">
-                  <span class="itin-search-empty-icon itin-search-empty-icon--search" aria-hidden="true"></span>
-                  <div class="itin-search-empty-txt">Aucune ligne pour « {{ activeField() === 'from' ? fromQuery() : toQuery() }} »</div>
-                </div>
+                    }
+                  </div>
+                }
               } @else {
-                <div class="itin-search-results">
-                  @for (item of lignesResults(); track item.numero) {
-                    <div class="itin-ligne-card" (click)="selectLigne(item.numero)">
-                      <div class="itin-ligne-badge-num">{{ item.numero }}</div>
-                      <div class="itin-ligne-info">
-                        <div class="itin-ligne-nom">{{ item.info.nom }}</div>
-                        <div class="itin-ligne-sub">{{ item.info.terminus_a }} - {{ item.info.terminus_b }}</div>
+                @if (lignesResults().length === 0) {
+                  <div class="itin-search-empty">
+                    <span class="itin-search-empty-icon itin-search-empty-icon--search" aria-hidden="true"></span>
+                    <div class="itin-search-empty-txt">Aucune ligne pour « {{ activeField() === 'from' ? fromQuery() : toQuery() }} »</div>
+                  </div>
+                } @else {
+                  <div class="itin-search-results">
+                    @for (item of lignesResults(); track item.numero) {
+                      <div class="itin-ligne-card" (click)="selectLigne(item.numero)">
+                        <div class="itin-ligne-badge-num">{{ item.numero }}</div>
+                        <div class="itin-ligne-info">
+                          <div class="itin-ligne-nom">{{ item.info.nom }}</div>
+                          <div class="itin-ligne-sub">{{ item.info.terminus_a }} - {{ item.info.terminus_b }}</div>
+                        </div>
                       </div>
-                    </div>
-                  }
-                </div>
+                    }
+                  </div>
+                }
               }
             }
           }
-        }
-      </div>
+        </div>
+      }
 
     </div>
   </div>

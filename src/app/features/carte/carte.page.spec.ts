@@ -21,7 +21,7 @@ describe('CartePage', () => {
     const apiSpy = jasmine.createSpyObj('ApiService', ['getBuses', 'getNearby', 'getLeaderboard']);
     const geoSpy = jasmine.createSpyObj('GeolocationPlugin', ['getCurrentPosition']);
     const modalSpy = jasmine.createSpyObj('ModalController', ['create']);
-    const sessionSpy = jasmine.createSpyObj('SessionService', ['getSessionId', 'getToken']);
+    const sessionSpy = jasmine.createSpyObj('SessionService', ['getSessionId', 'getToken', 'ensureSession']);
 
     // Create a real DOM element for the Leaflet map container
     mapDiv = document.createElement('div');
@@ -54,7 +54,11 @@ describe('CartePage', () => {
       leaderboard: [],
       stats: { total_signalements_aujourd_hui: 0, total_signalements_all_time: 0, nb_contributeurs: 0 }
     }));
-    modalCtrlSpy.create.and.resolveTo({ present: jasmine.createSpy('present').and.resolveTo() } as any);
+    modalCtrlSpy.create.and.resolveTo({
+      present: jasmine.createSpy('present').and.resolveTo(),
+      onDidDismiss: jasmine.createSpy('onDidDismiss').and.resolveTo({ data: { success: false } })
+    } as any);
+    sessionServiceSpy.ensureSession.and.resolveTo({ sessionId: 'test-session', token: 'test-token' });
     sessionServiceSpy.getSessionId.and.returnValue('test-session');
     geolocationMock.getCurrentPosition.and.resolveTo({
       timestamp: Date.now(),
@@ -152,6 +156,44 @@ describe('CartePage', () => {
     tick();
 
     expect(modalCtrlSpy.create).toHaveBeenCalled();
+  }));
+
+  it('should call getBuses on successful and recorded signalement modal dismiss', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    spyOn(component, 'getBuses');
+
+    const mockModal = {
+      present: jasmine.createSpy('present').and.resolveTo(),
+      onDidDismiss: jasmine.createSpy('onDidDismiss').and.resolveTo({ data: { success: true, recorded: true } })
+    };
+    modalCtrlSpy.create.and.resolveTo(mockModal as any);
+
+    component.openSignalement();
+    tick();
+
+    expect(modalCtrlSpy.create).toHaveBeenCalled();
+    expect(mockModal.present).toHaveBeenCalled();
+    expect(component.getBuses).toHaveBeenCalled();
+  }));
+
+  it('should NOT call getBuses if signalement modal is dismissed without a new recording', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    spyOn(component, 'getBuses');
+
+    const mockModal = {
+      present: jasmine.createSpy('present').and.resolveTo(),
+      onDidDismiss: jasmine.createSpy('onDidDismiss').and.resolveTo({ data: { success: true, recorded: false } })
+    };
+    modalCtrlSpy.create.and.resolveTo(mockModal as any);
+
+    component.openSignalement();
+    tick();
+
+    expect(modalCtrlSpy.create).toHaveBeenCalled();
+    expect(mockModal.present).toHaveBeenCalled();
+    expect(component.getBuses).not.toHaveBeenCalled();
   }));
 
   it('should handle db_error explicitly and clear markers', fakeAsync(() => {
@@ -263,7 +305,7 @@ describe('CartePage', () => {
     component.ionViewDidLeave();
   }));
 
-  it('should destroy map and clear markers on ionViewDidLeave', fakeAsync(() => {
+  it('should not destroy map on ionViewDidLeave, but should destroy it on ngOnDestroy', fakeAsync(() => {
     const fixture = TestBed.createComponent(CartePage);
     const component = fixture.componentInstance;
 
@@ -272,7 +314,10 @@ describe('CartePage', () => {
 
     expect(component['map']).toBeTruthy();
     component.ionViewDidLeave();
-    expect(component['map']).toBeNull();
+    expect(component['map']).toBeTruthy(); // Kept alive for tab switching
+
+    component.ngOnDestroy();
+    expect(component['map']).toBeNull(); // Cleaned up when page is destroyed
   }));
 
   it('should stop the 30s polling on ionViewDidLeave and not refetch afterwards', fakeAsync(() => {
@@ -393,5 +438,114 @@ describe('CartePage', () => {
     expect(component.welcomeMessage()).toBeNull();
 
     component.ionViewDidLeave();
+  }));
+
+  it('should zoom in and zoom out of the map', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    const initialZoom = component['map']?.getZoom() || 13;
+    component.zoomIn();
+    expect(component['map']?.getZoom()).toBe(initialZoom + 1);
+
+    component.zoomOut();
+    expect(component['map']?.getZoom()).toBe(initialZoom);
+
+    component.ionViewDidLeave();
+  }));
+
+  it('should cycle panel height when togglePanel is called', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    
+    spyOnProperty(window, 'innerHeight', 'get').and.returnValue(800);
+    const snapBas = Math.max(180, Math.round(800 * 0.28)); // 224
+    const snapMilieu = Math.round(800 * 0.50); // 400
+    const snapHaut = Math.round(800 * 0.85); // 680
+
+    component.ngOnInit();
+    expect(component.panelHeight()).toBe(snapBas);
+
+    component.togglePanel();
+    expect(component.panelHeight()).toBe(snapMilieu);
+
+    component.togglePanel();
+    expect(component.panelHeight()).toBe(snapHaut);
+
+    component.togglePanel();
+    expect(component.panelHeight()).toBe(snapBas);
+  }));
+
+  it('should handle pointer drag start, move, and end', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    spyOnProperty(window, 'innerHeight', 'get').and.returnValue(800);
+    
+    component.ngOnInit();
+    expect(component.panelHeight()).toBe(224);
+
+    const dragEl = document.createElement('div');
+    const pointerDownEvent = new PointerEvent('pointerdown', {
+      clientY: 500,
+      pointerId: 1
+    });
+    spyOn(pointerDownEvent, 'preventDefault');
+    spyOn(dragEl, 'setPointerCapture');
+
+    // Simulate drag start
+    Object.defineProperty(pointerDownEvent, 'currentTarget', { value: dragEl });
+    Object.defineProperty(pointerDownEvent, 'target', { value: dragEl });
+    component.onDragStart(pointerDownEvent);
+
+    expect(component.isDragging()).toBeTrue();
+    expect(pointerDownEvent.preventDefault).toHaveBeenCalled();
+    expect(dragEl.setPointerCapture).toHaveBeenCalledWith(1);
+
+    // Simulate drag move: drag up by 100px (clientY from 500 to 400)
+    document.dispatchEvent(new PointerEvent('pointermove', {
+      clientY: 400
+    }));
+    expect(component.panelHeight()).toBe(324); // 224 + 100
+
+    // Simulate drag end
+    spyOn(dragEl, 'releasePointerCapture');
+    document.dispatchEvent(new PointerEvent('pointerup'));
+
+    expect(component.isDragging()).toBeFalse();
+    expect(dragEl.releasePointerCapture).toHaveBeenCalledWith(1);
+    // Should snap to nearest snap height (324 is closer to 400 than to 224)
+    expect(component.panelHeight()).toBe(400); // snapped to snapMilieu
+  }));
+
+  it('should suppress click toggle after dragging the grabber', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    spyOnProperty(window, 'innerHeight', 'get').and.returnValue(800);
+    spyOn(component, 'togglePanel').and.callThrough();
+
+    component.ngOnInit();
+    expect(component.panelHeight()).toBe(224);
+
+    const dragEl = document.createElement('div');
+    const pointerDownEvent = new PointerEvent('pointerdown', { clientY: 500, pointerId: 1 });
+    Object.defineProperty(pointerDownEvent, 'currentTarget', { value: dragEl });
+    Object.defineProperty(pointerDownEvent, 'target', { value: dragEl });
+    spyOn(dragEl, 'setPointerCapture');
+    
+    component.onDragStart(pointerDownEvent);
+    
+    // Move significantly (100px)
+    document.dispatchEvent(new PointerEvent('pointermove', { clientY: 400 }));
+    document.dispatchEvent(new PointerEvent('pointerup'));
+    
+    // Simulate trailing click event
+    component.togglePanel();
+
+    // Height should remain 400 (the snapped height), not cycled to 680
+    expect(component.togglePanel).toHaveBeenCalled();
+    expect(component.panelHeight()).toBe(400);
   }));
 });

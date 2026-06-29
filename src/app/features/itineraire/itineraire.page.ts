@@ -437,8 +437,6 @@ export class ItinerairePage implements OnInit, OnDestroy {
 
   resetTrip() {
     this.resultVisible.set(false);
-    this.fromQuery.set('');
-    this.toQuery.set('');
     this.activeField.set(null);
     this.searchResults.set([]);
     this.lignesResults.set([]);

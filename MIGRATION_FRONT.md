@@ -63,6 +63,170 @@ avant d'entamer l'Étape 2 (Carte).**
 - Ordre : tokens/theme/nav (0+1) → Carte (2) → reste.
 - Marker bus : remplacer l'emoji par la **pastille numéro de ligne colorée par fraîcheur** (§3.3) — point jugé prioritaire par l'utilisateur.
 
+### Retours visuels à corriger avant prochain push Cloudflare (2026-06-29)
+
+Ces points viennent du rendu Cloudflare / preview mobile après le push `e42e5d6`. Ils sont à traiter comme une passe de stabilisation UI avant de considérer la migration front comme validée visuellement.
+
+#### P0 — Carte : Leaflet se casse après changement d'onglet
+
+- **Image** : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-d36e0aca-a3b8-4d49-9b8e-5661a3710914.png`
+- **Observation utilisateur** : la carte charge bien au départ. Le bug apparaît après avoir changé d'onglet puis être revenu sur **Carte**.
+- **Symptôme** : seule la partie haute de Leaflet reste rendue ; une grande zone claire/vide apparaît sous les tuiles.
+- **Hypothèse structurelle** : lifecycle Ionic tabs + Leaflet. Le conteneur redevient visible avec une taille différente, mais Leaflet garde son ancienne taille interne.
+- **Fichiers probables** : `src/app/features/carte/carte.page.ts`, `src/app/features/carte/carte.page.scss`.
+- **Attendu** : ouvrir Carte → aller Itinéraire/Chat/Mes lignes → revenir Carte doit conserver une carte pleine hauteur, sans zone vide.
+- **Contraintes** : ne pas recréer toute la map si elle existe déjà ; rappeler `map.invalidateSize()` au bon moment après retour onglet (`ionViewDidEnter`/`requestAnimationFrame`/délai contrôlé) ; vérifier aussi resize/orientation ; nettoyer les listeners.
+- **Validation demandée** : reproduction explicite du scénario changement d'onglet + vérification visuelle sur viewport mobile.
+
+#### P1 — Carte : contrôles refresh / cible / zoom à réaligner
+
+- **Image** : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-31cd589d-c0f7-46e4-9b29-a08c03405cdf.png`
+- **Observation utilisateur** : les boutons doivent reprendre le rendu de référence : refresh en haut à droite, cible sous refresh, zoom +/− à gauche. Le bouton cible existe déjà mais l'icône a changé.
+- **Fichiers probables** : `src/app/features/carte/carte.page.html`, `src/app/features/carte/carte.page.scss`.
+- **Attendu** : boutons sombres, cohérents, un peu plus centrés dans la zone carte ; même équilibre visuel pour refresh, cible et zoom ; pas de chevauchement avec CTA ni panneau bas.
+- **Contraintes** : conserver les fonctions existantes (`refresh`, `centerOnUser`, zoom Leaflet) ; ne pas modifier le comportement API ; corriger uniquement position, dimensions, icône et style.
+- **Validation demandée** : capture/preview mobile montrant les 4 contrôles dans leur position finale.
+
+#### P1 — Carte : panneau "Bus actifs" draggable avec snap points
+
+- **Images** :
+  - position basse : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-7a99f197-9225-4d59-ab99-0829aae255f6.png`
+  - position haute : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-422ea8d1-aa95-47fc-83f3-8eb102c8f3d6.png`
+  - état par défaut trop bas : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-21fcfed4-2a49-45e3-9d5f-ab6a8b7fabd3.png`
+- **Observation utilisateur** : le panneau ne doit pas être un simple clic ouvert/fermé. Il doit se glisser verticalement pour laisser l'espace aux users.
+- **Observation complémentaire** : l'état par défaut doit remonter un peu. Il doit afficher au minimum du contenu lisible : texte d'état, un bus, ou un signaleur. L'utilisateur ne doit pas voir seulement le CTA + tabs + un panneau presque vide.
+- **Attendu** : poignée draggable ; position basse utile, position milieu, position haute ; snap propre ; en position haute, garder un bout de carte visible ; tab-bar toujours visible.
+- **Fichiers probables** : `src/app/features/carte/carte.page.html`, `src/app/features/carte/carte.page.scss`, `src/app/features/carte/carte.page.ts`.
+- **Contraintes** : ne pas revenir à `ion-modal` ; gérer touch/pointer events proprement ; éviter conflit entre drag du sheet et scroll interne ; rappeler `map.invalidateSize()` si le drag modifie la zone carte ; garder les états Bus actifs / meilleurs signaleurs.
+- **Validation demandée** : test manuel drag bas → milieu → haut → bas, avec carte et tab-bar utilisables ; en état par défaut, vérifier qu'au moins une information utile du panneau est visible.
+
+#### P1 — Itinéraire : résultat post-calcul doit remplacer l'état recherche
+
+- **Images** :
+  - dashboard attendu / référence : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-6f4795a2-38ce-4ab3-8d8b-5b983b5dc6f0.png`
+  - Ionic actuel problématique : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-33902405-5709-4394-97d3-c92d158e409e.png`
+- **Observation utilisateur** : après avoir saisi les arrêts départ/destination et lancé le calcul, Ionic n'affiche pas correctement la suite. On voit encore `Yoff` / `Médina` dans les champs en bas, parfois répétés, et il faut cliquer dessus pour revoir les lignes/suggestions. Ce n'est pas le comportement attendu.
+- **Problème UX** : l'écran reste dans un état hybride "résultat + recherche active". Après calcul, les champs/suggestions ne doivent pas rester ouverts ni répéter les mêmes lieux sous le résultat.
+- **Fichiers probables** : `src/app/features/itineraire/itineraire.page.ts`, `src/app/features/itineraire/itineraire.page.html`, `src/app/features/itineraire/itineraire.page.scss`.
+- **Attendu** : après calcul, afficher directement la carte résultat type dashboard (départ → ligne/direct/arrêts → destination, durée estimée, modifier le trajet). Les champs de recherche doivent être fermés/compactés. Les suggestions `Lieux/Lignes` ne doivent plus rester visibles sous le résultat, sauf si l'utilisateur clique explicitement sur "Modifier le trajet" ou retape dans un champ.
+- **Contraintes** : ne pas relancer un calcul en cliquant une ligne de suggestion ; ne pas afficher deux fois le même lieu (`Yoff`, `Médina`) ; ne pas garder un loader infini "Calculer en cours..." si le backend échoue ; afficher l'état erreur/réessayer clairement.
+- **Validation demandée** : scénario Yoff → Médina : saisir départ/destination → calculer → vérifier que le résultat est lisible immédiatement, que les suggestions sont fermées, et que "Modifier le trajet" est le seul chemin pour rouvrir l'édition.
+
+#### P1 — Navigation : tab-bar flottante et safe-area iOS/Android
+
+- **Image** : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-da281f47-9ca5-45bc-8560-ab259c28a943.png`
+- **Observation utilisateur** : la navbar doit être décollée du bas et laisser un espace safe-area iOS/Android.
+- **Fichiers probables** : `src/app/tabs/tabs.page.scss`, éventuellement `src/theme/xetu.scss` / `src/global.scss`.
+- **Attendu** : tab-bar capsule flottante, marge latérale, ombre douce, marge basse avec `env(safe-area-inset-bottom)`, état actif orange conservé.
+- **Contraintes** : ne pas cacher du contenu sous la nav ; vérifier interaction avec panneau Carte ; rendu propre sur iPhone home indicator et Android gesture bar.
+- **Validation demandée** : viewport iPhone + Android, tab-bar visible et décollée sans chevauchement.
+
+#### P2 — Mes lignes : modal abonnement trop haut + fermeture non évidente
+
+- **Image** : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-9b47d8fc-02ee-4161-9dbc-647973213e90.png`
+- **Observation utilisateur** : le modal "S'abonner à une ligne" monte trop haut et laisse beaucoup d'espace vide en bas. Le geste de glisser vers le bas peut rester, mais il faut aussi un bouton évident pour fermer.
+- **Fichiers probables** : `src/app/features/mes-lignes/subscribe-modal.component.html`, `src/app/features/mes-lignes/subscribe-modal.component.scss`, éventuellement `mes-lignes.page.*` selon le wrapper.
+- **Attendu** : modal un peu plus bas / mieux ancré visuellement ; contenu compact ; pas de grand vide inutile ; conserver l'effet sheet/glisser ; ajouter un bouton plein largeur de fermeture/annulation en bas du modal.
+- **Contraintes** : ne pas masquer les lignes disponibles ; bouton de fermeture clair pour les utilisateurs qui n'ont pas l'intuition du drag ; respecter safe-area bottom ; garder la recherche et la grille des lignes MVP.
+- **Validation demandée** : ouvrir Mes lignes → "+ S'abonner" → vérifier position verticale, absence de vide excessif, bouton plein largeur visible, fermeture au bouton + drag fonctionnelle.
+
+#### P0 — Signalement : GPS bloqué, carte absente, "signalements autour de moi" absent
+
+- **Images** :
+  - étape arrêt bloquée : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-12ecc88f-ec10-483d-892a-104964575017.png`
+  - étape ligne actuelle : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-f8639669-635c-4590-9d1f-c81f71fcd9b5.png`
+- **Observation utilisateur** : bug critique. Dans le wizard Signalement, le GPS reste sur "Position en attente...", la carte n'apparaît pas, les "signalements autour de moi" n'apparaissent pas, et l'utilisateur est bloqué à l'étape arrêt.
+- **Fichiers probables** : `src/app/features/signalement/signalement-modal.component.ts`, `src/app/features/signalement/signalement-modal.component.html`, `src/app/features/signalement/signalement-modal.component.scss`, `src/app/core/services/api.service.ts` si le contexte nearby/report est mal appelé.
+- **Attendu** : après sélection de ligne, l'étape arrêt doit afficher une carte/zone de position exploitable, demander/recevoir la position si permission OK, charger les arrêts proches et/ou signalements autour de l'utilisateur, et toujours proposer une sortie manuelle claire si GPS indisponible.
+- **Contraintes** : ne jamais bloquer l'utilisateur uniquement parce que le GPS ne répond pas ; si GPS refuse/timeout, afficher un état clair + champ manuel + bouton continuer ; si GPS fonctionne, appeler le bon endpoint nearby/stops et afficher les résultats ; ne pas rester indéfiniment sur "Position en attente...".
+- **Validation demandée** : tester avec GPS autorisé et GPS refusé/timeout. Dans les deux cas, l'utilisateur doit pouvoir atteindre l'étape Envoi. Avec GPS autorisé, les arrêts proches/signalements autour doivent être visibles.
+
+#### P1 — Signalement : couleur de fond et format ligne non fidèles dashboard
+
+- **Images** :
+  - signalement mobile trop sombre / fond incorrect : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-f8639669-635c-4590-9d1f-c81f71fcd9b5.png`
+  - format attendu avec recherche de ligne : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-0d4f76df-2f2a-4dec-947d-631b7606e723.png`
+- **Observation utilisateur** : le fond actuel est trop sombre/noir. L'app doit reprendre la vraie couleur de fond du dashboard. Le format étape ligne doit garder la recherche de ligne comme dans la référence.
+- **Fichiers probables** : `src/app/features/signalement/signalement-modal.component.html`, `src/app/features/signalement/signalement-modal.component.scss`, `src/theme/variables.scss`, `src/theme/xetu.scss`.
+- **Attendu** : fond aligné dashboard (pas noir plein) ; grille de lignes MVP conservée ; champ "Chercher une ligne..." visible au bon endroit ; contraste et surfaces cohérents avec le reste de l'app.
+- **Contraintes** : corriger les tokens/couleurs à la source si la divergence est globale ; ne pas patcher seulement une page si le mauvais fond vient d'une variable globale ; garder accessibilité/contraste.
+- **Validation demandée** : comparaison visuelle côte à côte avec dashboard/référence, en particulier écran Signalement étape 1.
+
+#### P1 — Header global : intégrer le header dashboard `live` + hamburger dans Xetu Mobile
+
+- **Image** : `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-32872aae-0a9a-4b4c-9282-e57df86112b0.png`
+- **Correction utilisateur** : l'image montre le header du dashboard. Xetu Mobile ne l'a pas encore ; il faut l'intégrer, pas seulement corriger son espacement.
+- **Fichiers probables** : `src/app/tabs/*` si header global, ou pages concernées si header local ; vérifier la meilleure structure avant code.
+- **Attendu** : ajouter dans Xetu Mobile le header dashboard avec badge `live` à gauche et hamburger à droite, en respectant la safe-area top et le style dashboard.
+- **Contraintes** : ne pas créer un header qui mange trop la carte ; ne pas dupliquer le header page par page si un wrapper global propre suffit ; garder hamburger prêt pour le menu futur sans implémenter toute l'étape 7 si hors scope.
+- **Validation demandée** : capture en viewport mobile montrant le header dashboard intégré dans Xetu Mobile, avec carte/contenu commençant correctement dessous.
+
+### Retours audit fonctionnel Antigravity Dashboard vs Mobile (2026-06-29)
+
+Source : `C:\Users\DELL\.codex\attachments\ec231599-e569-479c-a12a-41834986eae7\pasted-text.txt`
+
+Ces retours ne remplacent pas les captures utilisateur ci-dessus. Ils ajoutent les écarts fonctionnels profonds entre `whatsapp-agent/Dashboard` et `xetu-mobile`. À traiter comme une phase **Front parity hardening**, avec vérification contre les vrais contrats API avant tout code.
+
+#### P0 — Post-signalement : rafraîchir immédiatement la carte après succès
+
+- **Référence dashboard** : `Dashboard/js/app.js` passe `initSignal({ onSuccess: () => { goTo('home'); _loadData(); } })`.
+- **Écart mobile** : `carte.page.ts` ouvre la modale Signalement mais ne traite pas son `dismiss` pour rafraîchir `/api/buses`.
+- **Impact** : après un signalement réussi, le bus peut ne pas apparaître immédiatement sur la carte mobile ; l'utilisateur attend le polling.
+- **Attendu** : si le modal Signalement se ferme avec un statut de succès (`recorded` ou statut équivalent), retourner/maintenir Carte et lancer immédiatement `getBuses()` puis mettre à jour `StoreService.activeBuses`.
+- **Contraintes** : ne pas créer de faux bus local ; ne pas afficher un signalement si le backend répond `already_recorded` sans nouvelle position ; respecter le contrat réel du modal.
+- **Validation demandée** : signalement réussi → fermeture/retour Carte → appel immédiat `/api/buses` observable → liste/carte rafraîchie sans attendre 30s.
+
+#### P1 — Carte : sélection d'un bus doit afficher le contexte de ligne
+
+- **Référence dashboard** : `Dashboard/js/home.js` charge les données de ligne, dessine une polyline, ajoute les marqueurs d'arrêts, puis ajuste la carte avec `fitBounds`.
+- **Écart mobile** : `selectBus(bus)` recentre seulement la carte sur `[bus.lat, bus.lon]`.
+- **Attendu** : au tap sur un bus, afficher au minimum le tracé de la ligne et les arrêts principaux/intermédiaires si les données locales/API disponibles le permettent.
+- **Contraintes** : ne pas inventer une trajectoire ; utiliser uniquement `xetu_mvp.json` / données ligne existantes / endpoint réel ; pas de mouvement synthétique ; si trace indisponible, afficher un état sobre "tracé indisponible".
+- **Validation demandée** : tap sur un bus → ligne visible ou fallback clair ; aucun crash si ligne inconnue.
+
+#### P1 — Carte : fiche bus sélectionné plus informative
+
+- **Référence dashboard** : une bus-card sélectionnée devient `.bus-card--selected` avec mode signalement, confiance/statut, signaleur si disponible, relance si autorisée.
+- **Écart mobile** : les cartes restent compactes et n'exposent presque aucune métadonnée.
+- **Attendu** : quand un bus est sélectionné, la carte/liste doit s'étendre pour afficher les métadonnées réellement disponibles dans `Bus`.
+- **Contraintes** : vérifier le contrat `/api/buses` avant design ; ne jamais afficher de champ inventé (`reporter`, `confidence`, `relanceAllowed`) s'il n'existe pas ; masquer proprement les lignes indisponibles.
+- **Validation demandée** : bus avec données complètes → fiche enrichie ; bus minimal → fiche propre sans `undefined`.
+
+#### P1 — Carte : prochains arrêts du bus sélectionné
+
+- **Référence dashboard** : `home.js` normalise `bus.position`, retrouve l'arrêt courant dans la ligne, puis affiche l'arrêt actuel + les 2 prochains (`bus-stops-preview`).
+- **Écart mobile** : aucune timeline/prochains arrêts.
+- **Attendu** : si `bus.position` et les arrêts de la ligne sont disponibles, afficher une mini timeline des prochains arrêts dans la fiche bus sélectionnée.
+- **Contraintes** : calcul textuel seulement, pas de simulation de progression ; si correspondance impossible, ne pas afficher une timeline trompeuse.
+- **Validation demandée** : bus positionné sur un arrêt connu → 3 arrêts visibles ; position inconnue → fallback propre.
+
+#### P2 — Tracking live passager à cadrer avant code
+
+- **Référence dashboard** : `Dashboard/js/signal.js` démarre `/tracking/session/start`, ping `/tracking/session/ping` toutes les 15s, puis stop `/tracking/session/stop` selon état serveur.
+- **Écart mobile** : aucun tracking live foreground après signalement mode passager.
+- **Impact** : le mode "passager à bord" ne contribue pas à une position fraîche continue côté mobile.
+- **Décision requise avant implémentation** : ce point touche batterie, permissions GPS, privacy et cycle de vie app. Présenter 2 options avant code :
+  1. tracking foreground simple seulement app ouverte ;
+  2. tracking natif plus robuste plus tard avec plugin/capacités dédiées.
+- **Contraintes** : ne pas lancer de tracking sans consentement explicite ; prévoir stop visible ; gérer app background/resume ; ne pas mélanger avec le simple `/api/report`.
+- **Validation demandée** : seulement après décision produit/technique.
+
+#### P2 — Live indicator / réseau global
+
+- **Référence dashboard** : badge `#live-indicator` affiche `live`, `sync...`, `offline · HH:MM`, avec dernier sync stocké ; `online/offline` déclenchent toasts et état live.
+- **Écart mobile** : polling bus simple + quelques listeners réseau localisés, mais pas d'indicateur global cohérent.
+- **Attendu** : intégrer le badge live du header avec état global de sync, dernière mise à jour et offline clair.
+- **Nuance vérifiée** : `mes-lignes.page.ts` contient déjà des listeners `online/offline`; ne pas dire que mobile n'écoute jamais le réseau. Le manque est une gestion globale visible.
+- **Validation demandée** : mode online → live/sync ; API échoue/offline → badge offline + heure dernière réussite.
+
+#### P3 — Menu hamburger, avis, contact, partage, push auto
+
+- **Référence dashboard** : menu hamburger avec partage, CGU/contact/avis ; push auto via `_maybeSubscribePush()` quand WS ouvert et lignes abonnés existantes.
+- **Écart mobile** : absent ou non cadré.
+- **Priorité** : après P0/P1. Ne pas bloquer la stabilisation Carte/Signalement dessus.
+- **Attendu** : garder en backlog, sauf si l'intégration du header nécessite au moins un menu placeholder propre.
+- **Validation demandée** : à définir dans une phase séparée.
+
 ---
 
 ## 2. Cause structurelle racine
@@ -591,5 +755,8 @@ remplace la version sommaire précédente. Découpée en **deux sous-étapes** (
 | 2026-06-29 | 5 | Supervision Codex post-diff : risque trouvé dans le modal — le chip gardait un état local `isSubscribed` alors que `subscribe()`/`unsubscribe()` peuvent rollback après erreur backend non retryable ; `ScoreService` n'avait pas de test direct | `subscribe()`/`unsubscribe()` retournent désormais `Promise<boolean>` ; `SubscribeModalComponent.toggleSubscription()` remet le chip dans son état précédent si le parent retourne `false` ; 1 test modal ajouté pour ce rollback + 3 tests `ScoreService` (init, incrément + persistance, paliers) ; `npm.cmd run build` → succès sans warning ; `npm.cmd test -- --watch=false --browsers=ChromeHeadless --progress=false` → **111/111 SUCCESS** |
 | 2026-06-29 | 5 | Vérification visuelle légère via navigateur intégré sur `http://127.0.0.1:4200/tabs/mes-lignes` | Page rendue : « Mes abonnements », CTA « + S'abonner à une ligne », bloc « Mon score », aucun `ion-header`, aucun `ion-fab` ; modal abonnement ouvert : **10 chips** exactement `1,4,6,7,8,9,10,13,23,232`, `218/219` absents, bouton « Annuler » présent. Non testé visuellement : aller-retour backend réel de création/suppression d'abonnement ; couvert par tests unitaires/mocks, pas par serveur Railway live |
 | 2026-06-29 | 6 | Implémentation Signalement : retrait des composants Ionic, wizard 3 étapes portées depuis dashboard (ligne, map légère, tags/mode), concaténation tags + texte dans l'observation, +1 sur recorded (pas already_recorded) | `npm.cmd run build` → succès ; `npm.cmd test` → **112/112 SUCCESS** |
-| 2026-06-29 | 6 | Supervision Codex post-diff : flux de recherche d'arrêts durci après erreur API temporaire, sortie manuelle `Confirmer "arrêt"`/`Suivant` restaurée comme le dashboard, et CSS volumineux réduit en déplaçant les primitives progress/success vers `xetu.scss` sans augmenter le budget Angular | `npm.cmd run build` → succès sans warning ; `npm.cmd test -- --watch=false --browsers=ChromeHeadless --progress=false` → **114/114 SUCCESS** |
+| 2026-06-29 | 6 | Lot 1 - Cycle de vie de la Carte & Refresh post-signalement : conservation de Leaflet sur changement d'onglets (retrait de `destroyMap()`), `invalidateSize()` sur retour, et refresh `getBuses()` uniquement si `{ success: true, recorded: true }` sur dismiss de la modale. | `npm.cmd run build` → succès ; `npm.cmd test` → **116/116 SUCCESS** (tests de cycle de vie et de rafraîchissement ajoutés) |
+| 2026-06-29 | 6 | Lot 2 - Résilience GPS & Arrêts Proches (Signalement) : intégration d'une vraie carte Leaflet légère et stable en étape 2, traitement GPS non-bloquant avec message d'avertissement fallback et bouton Suivant actif, recherche de ligne MVP dans l'étape 1. | `npm.cmd run build` → succès ; `npm.cmd test` → **116/116 SUCCESS** (tests mis à jour et passants) |
+| 2026-06-29 | 2 | Lot 3 - Contrôles de la Carte & Panneau Draggable (P1.4, P1.5) : contrôles zoom +/- à gauche (sans animation pour réactivité), refresh/locate à droite (icône cible SVG corrigée), panneau bottom-sheet draggable par pointer events (souris + tactile) avec snaps Bas (~28% utile)/Milieu (50%)/Haut (85%) sans transition en cours de drag. | `npm.cmd run build` → succès ; `npm.cmd test` → **120/120 SUCCESS** (3 tests de zoom/drag ajoutés + garde anti double-action) |
+| 2026-06-29 | 4 & 5 | Lot 4 - Ergonomie Itinéraire & Navigation Flottante (P1.6, P1.7) et Lot 5 - Ajustements Modal d'Abonnement & Header (P1.9, P1.10) : masquage des champs de recherche après calcul de l'itinéraire (avec conservation des saisies d'origine), tab-bar flottante en capsule avec safe-area haute/basse, header Dashboard global avec indicateur live clignotant et toggle transparent sur la carte, modal d'abonnement bornée à 50% de hauteur. | `npm.cmd run build` → succès ; `npm.cmd test` → **120/120 SUCCESS** (tests mis à jour et passants) |
 <!-- Ajouter une ligne par diff livré. Ne jamais effacer l'historique. -->

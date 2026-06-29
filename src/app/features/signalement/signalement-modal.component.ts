@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, Inject, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, Inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonContent, ModalController, ToastController } from '@ionic/angular/standalone';
@@ -9,6 +9,7 @@ import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { firstValueFrom, Subject, Subscription, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import * as L from 'leaflet';
 
 @Component({
   selector: 'app-signalement-modal',
@@ -32,10 +33,22 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   observation = '';
   selectedTags = signal<string[]>([]);
 
+  // Ligne Search
+  ligneSearchQuery = signal<string>('');
+  filteredMvpLines = computed(() => {
+    const q = this.ligneSearchQuery().trim().toLowerCase();
+    if (!q) return this.mvpLines;
+    return this.mvpLines.filter(l => l.toLowerCase().includes(q));
+  });
+
   // GPS / Nearby Stops
   gpsCoords = signal<{ lat: number; lon: number } | null>(null);
   isGpsLoading = signal<boolean>(false);
   nearbyStops = signal<{ name: string; dist?: number }[]>([]);
+
+  // Leaflet map inside wizard
+  private map: L.Map | null = null;
+  private userMarker: L.Marker | null = null;
 
   // Search Stops
   searchQuery = '';
@@ -47,6 +60,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   showSuccess = signal<boolean>(false);
   rateLimitCountdown = signal<number>(0);
   scoreTotal = signal<number>(0);
+  isNewReportRecorded = false;
 
   private countdownInterval: any = null;
   private searchSubject = new Subject<string>();
@@ -92,6 +106,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.searchSubscription.unsubscribe();
     this.clearCountdown();
+    this.destroyMap();
   }
 
   private async checkLocationAndFetchNearby() {
@@ -109,9 +124,11 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       // Latitude [12.0, 16.0], Longitude [-17.7, -11.0]
       if (lat >= 12.0 && lat <= 16.0 && lon >= -17.7 && lon <= -11.0) {
         this.gpsCoords.set({ lat, lon });
+        this.updateUserMarker();
         
         // Fetch nearby stops
-        const res = await firstValueFrom(this.apiService.getNearby(lat, lon));
+        const sessionId = this.sessionService.getSessionId();
+        const res = await firstValueFrom(this.apiService.getNearby(lat, lon, sessionId || undefined));
         if (res && res.stops) {
           this.nearbyStops.set(res.stops.map(s => ({ name: s.nom, dist: s.distance_m })));
         }
@@ -131,13 +148,14 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     this.searchSubject.next(val);
   }
 
-  manualStopLabel(): string {
-    return this.searchQuery.trim();
+  onLigneSearchChange(value: string) {
+    this.ligneSearchQuery.set(value);
   }
 
   selectLigne(ligne: string) {
     this.selectedLigne.set(ligne);
     this.step.set(2);
+    this.initMap();
   }
 
   selectArret(arret: string) {
@@ -146,13 +164,20 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
 
     this.selectedArret.set(normalized);
     this.searchQuery = '';
+    this.destroyMap();
     this.step.set(3);
   }
 
   goBack() {
     const current = this.step();
     if (current > 1) {
+      if (current === 2) {
+        this.destroyMap();
+      }
       this.step.set(current - 1);
+      if (this.step() === 2) {
+        this.initMap();
+      }
     }
   }
 
@@ -213,6 +238,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       if (res && (res.status === 'already_recorded' || ('id' in res && res.status === 'recorded'))) {
         if (res.status === 'recorded') {
           this.scoreService.increment();
+          this.isNewReportRecorded = true;
         }
         this.scoreTotal.set(this.scoreService.points());
         this.step.set(4);
@@ -280,7 +306,79 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     this.rateLimitCountdown.set(0);
   }
 
+  manualStopLabel(): string {
+    return this.searchQuery.trim();
+  }
+
+  private initMap() {
+    // Run in a slight delay to ensure Angular has rendered the DOM element #map-signal
+    setTimeout(() => {
+      const mapContainer = document.getElementById('map-signal');
+      if (!mapContainer) return;
+
+      if (this.map) {
+        this.map.invalidateSize();
+        return;
+      }
+
+      try {
+        this.map = L.map('map-signal', {
+          zoomControl: false,
+          attributionControl: false
+        }).setView([14.7167, -17.4677], 14);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          subdomains: 'abcd',
+        }).addTo(this.map);
+
+        this.updateUserMarker();
+      } catch (err) {
+        console.warn('Failed to initialize Leaflet in signalement modal:', err);
+      }
+    }, 50);
+  }
+
+  private destroyMap() {
+    if (this.map) {
+      try {
+        this.map.remove();
+      } catch (e) {
+        console.warn('Error removing Leaflet map in signalement modal:', e);
+      }
+      this.map = null;
+    }
+    this.userMarker = null;
+  }
+
+  private updateUserMarker() {
+    if (!this.map) return;
+    const coords = this.gpsCoords();
+    if (!coords) return;
+
+    try {
+      const userIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: '<div class="blue-dot"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      if (this.userMarker) {
+        this.userMarker.setLatLng([coords.lat, coords.lon]);
+      } else {
+        this.userMarker = L.marker([coords.lat, coords.lon], { icon: userIcon }).addTo(this.map);
+      }
+      this.map.setView([coords.lat, coords.lon], 15);
+    } catch (err) {
+      console.warn('Failed to update user marker in signalement map:', err);
+    }
+  }
+
   dismiss() {
-    this.modalCtrl.dismiss({ success: this.showSuccess() });
+    this.modalCtrl.dismiss({
+      success: this.showSuccess(),
+      recorded: this.isNewReportRecorded
+    });
   }
 }

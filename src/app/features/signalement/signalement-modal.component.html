@@ -42,11 +42,18 @@
         <div class="form-section">
           <div id="ligne-grid">
             <div class="sg-grid-wrap">
+              <div class="sg-search-wrap sg-search-wrap--top" style="margin-bottom: 12px; position: relative;">
+                <input type="text" class="sg-search" placeholder="Chercher une ligne..."
+                       [ngModel]="ligneSearchQuery()" (ngModelChange)="onLigneSearchChange($event)"
+                       autocomplete="off" maxlength="10">
+              </div>
               <div class="sg-priority-grid">
-                @for (line of mvpLines; track line) {
+                @for (line of filteredMvpLines(); track line) {
                   <button class="sg-chip" [class.sg-chip--selected]="selectedLigne() === line" (click)="selectLigne(line)">
                     {{ line }}
                   </button>
+                } @empty {
+                  <div style="padding: 24px; text-align: center; color: var(--muted); font-size: 13px; grid-column: 1 / -1;">Aucune ligne trouvée.</div>
                 }
               </div>
             </div>
@@ -65,25 +72,26 @@
         </div>
 
         <!-- Mini map Leaflet (Light visual version as per user constraint) -->
-        <div class="sg-mini-map-wrap">
-          <div class="light-map-placeholder">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted); opacity: 0.5; margin-bottom: 8px;">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-              <circle cx="12" cy="9" r="2.5"/>
-            </svg>
-            <span style="color: var(--muted); font-size: 12px;">Position via GPS</span>
-          </div>
-          <div class="sg-map-status-badge" id="sg-map-status">
+        <div class="sg-mini-map-wrap" style="position: relative; height: 160px; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border);">
+          <div id="map-signal" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></div>
+          <div class="sg-map-status-badge" id="sg-map-status" style="position: absolute; top: 10px; left: 10px; z-index: 2;">
             {{ isGpsLoading() ? 'Position en attente...' : (gpsCoords() ? 'Position détectée' : 'GPS non disponible') }}
           </div>
           @if (isGpsLoading()) {
-            <div id="gps-spinner" class="gps-spinner-overlay">
+            <div id="gps-spinner" class="gps-spinner-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: rgba(10, 15, 30, 0.4); z-index: 3;">
               <span class="gps-spinner-dot"></span>
               <span class="gps-spinner-dot"></span>
               <span class="gps-spinner-dot"></span>
             </div>
           }
         </div>
+
+        <!-- GPS unavailable fallback warning -->
+        @if (!isGpsLoading() && !gpsCoords()) {
+          <div class="geoloc-status geoloc-status--warn" style="margin-bottom: 12px;">
+            Géolocalisation indisponible. Saisissez l'arrêt manuellement ci-dessous.
+          </div>
+        }
 
         <!-- Arrêts proches -->
         <div class="sg-step2-nearby">

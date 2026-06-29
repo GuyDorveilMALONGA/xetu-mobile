@@ -38,8 +38,16 @@ export class CartePage implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   activeTab = signal<'buses' | 'top'>('buses');
   activeFilter = signal<string | null>(null);
-  isPanelExpanded = signal<boolean>(false);
+  panelHeight = signal<number>(180);
+  isDragging = signal<boolean>(false);
   selectedBusKey = signal<string | null>(null);
+
+  private startY = 0;
+  private startHeight = 0;
+  private activePointerId: number | null = null;
+  private activeDragElement: HTMLElement | null = null;
+  private hasDragged = false;
+  private suppressClick = false;
   welcomeMessage = signal<string | null>(null);
 
   filterLines = computed(() => {
@@ -66,7 +74,10 @@ export class CartePage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // No-op
+    this.sessionService.ensureSession();
+    // Set default height based on viewport
+    const snapBas = Math.max(180, Math.round(window.innerHeight * 0.28));
+    this.panelHeight.set(snapBas);
   }
 
   ionViewDidEnter() {
@@ -78,12 +89,14 @@ export class CartePage implements OnInit, OnDestroy {
 
   ionViewDidLeave() {
     this.stopPolling();
-    this.destroyMap();
   }
 
   ngOnDestroy() {
     this.stopPolling();
     this.destroyMap();
+    // Ensure drag listeners are removed if destroyed during drag
+    document.removeEventListener('pointermove', this.onDragMove);
+    document.removeEventListener('pointerup', this.onDragEnd);
   }
 
   async openSignalement() {
@@ -91,6 +104,11 @@ export class CartePage implements OnInit, OnDestroy {
       component: SignalementModalComponent
     });
     await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.success && data.recorded) {
+      this.getBuses(); // Immediate refresh if a new report was recorded
+    }
   }
 
   private startPolling() {
@@ -105,9 +123,117 @@ export class CartePage implements OnInit, OnDestroy {
     }
   }
 
-  togglePanel() {
-    this.isPanelExpanded.set(!this.isPanelExpanded());
+  zoomIn() {
+    if (this.map) {
+      this.map.zoomIn(1, { animate: false });
+    }
   }
+
+  zoomOut() {
+    if (this.map) {
+      this.map.zoomOut(1, { animate: false });
+    }
+  }
+
+  togglePanel() {
+    if (this.suppressClick) {
+      this.suppressClick = false;
+      return;
+    }
+
+    const snapBas = Math.max(180, Math.round(window.innerHeight * 0.28));
+    const snapMilieu = Math.round(window.innerHeight * 0.50);
+    const snapHaut = Math.round(window.innerHeight * 0.85);
+    const h = this.panelHeight();
+
+    if (h < snapMilieu - 30) {
+      this.panelHeight.set(snapMilieu);
+    } else if (h < snapHaut - 30) {
+      this.panelHeight.set(snapHaut);
+    } else {
+      this.panelHeight.set(snapBas);
+    }
+
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 320);
+  }
+
+  onDragStart(event: PointerEvent) {
+    const target = event.target as HTMLElement;
+    // Do not drag if clicking on buttons/inputs inside the header (like tabs)
+    if (target.closest('button') && !target.classList.contains('panel-grabber')) {
+      return;
+    }
+
+    event.preventDefault();
+    this.isDragging.set(true);
+    this.hasDragged = false;
+    this.startY = event.clientY;
+    this.startHeight = this.panelHeight();
+
+    document.addEventListener('pointermove', this.onDragMove);
+    document.addEventListener('pointerup', this.onDragEnd);
+
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+    this.activePointerId = event.pointerId;
+    this.activeDragElement = el;
+  }
+
+  private onDragMove = (event: PointerEvent) => {
+    if (!this.isDragging()) return;
+    const deltaY = this.startY - event.clientY;
+    if (Math.abs(deltaY) > 5) {
+      this.hasDragged = true;
+    }
+    const newHeight = Math.max(120, Math.min(window.innerHeight * 0.9, this.startHeight + deltaY));
+    this.panelHeight.set(newHeight);
+  };
+
+  private onDragEnd = (event: PointerEvent) => {
+    if (!this.isDragging()) return;
+    this.isDragging.set(false);
+
+    if (this.hasDragged) {
+      this.suppressClick = true;
+      setTimeout(() => {
+        this.suppressClick = false;
+      }, 50);
+    }
+
+    if (this.activeDragElement && this.activePointerId !== null) {
+      try {
+        this.activeDragElement.releasePointerCapture(this.activePointerId);
+      } catch (e) {}
+    }
+    this.activeDragElement = null;
+    this.activePointerId = null;
+
+    document.removeEventListener('pointermove', this.onDragMove);
+    document.removeEventListener('pointerup', this.onDragEnd);
+
+    const h = this.panelHeight();
+    const snapBas = Math.max(180, Math.round(window.innerHeight * 0.28));
+    const snapMilieu = Math.round(window.innerHeight * 0.50);
+    const snapHaut = Math.round(window.innerHeight * 0.85);
+
+    const snaps = [
+      { val: snapBas, dist: Math.abs(h - snapBas) },
+      { val: snapMilieu, dist: Math.abs(h - snapMilieu) },
+      { val: snapHaut, dist: Math.abs(h - snapHaut) }
+    ];
+    snaps.sort((a, b) => a.dist - b.dist);
+    this.panelHeight.set(snaps[0].val);
+
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 320);
+  };
 
   setTab(tab: 'buses' | 'top') {
     this.activeTab.set(tab);
@@ -125,7 +251,14 @@ export class CartePage implements OnInit, OnDestroy {
    * Initializes the Leaflet map container
    */
   private initMap() {
-    if (this.map) return;
+    if (this.map) {
+      setTimeout(() => {
+        if (this.map) {
+          this.map.invalidateSize();
+        }
+      }, 50);
+      return;
+    }
 
     // Default center on Dakar center: Latitude 14.7167, Longitude -17.4677, Zoom 13
     this.map = L.map('map', {

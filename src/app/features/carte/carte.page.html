@@ -15,13 +15,36 @@
         </div>
       }
 
-      <button class="map-locate-btn" type="button" aria-label="Afficher ma position" (click)="handleLocate()">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
-          <circle cx="12" cy="12" r="8"></circle>
-        </svg>
-      </button>
+      <!-- Zoom Controls (left side, vertically centered) -->
+      <div class="map-controls-left" aria-label="Contrôles de zoom">
+        <button class="map-ctrl-btn map-zoom-in" type="button" aria-label="Zoomer" (click)="zoomIn()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <button class="map-ctrl-btn map-zoom-out" type="button" aria-label="Dézoomer" (click)="zoomOut()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Actions Controls (right side, vertically centered) -->
+      <div class="map-controls-right" aria-label="Contrôles d'actions">
+        <button class="map-ctrl-btn map-refresh-btn" type="button" aria-label="Rafraîchir" (click)="getBuses()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+        </button>
+        <button class="map-ctrl-btn map-locate-btn" type="button" aria-label="Afficher ma position" (click)="handleLocate()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+            <circle cx="12" cy="12" r="8"></circle>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="see-bus-wrap">
@@ -31,10 +54,15 @@
       </button>
     </div>
 
-    <div class="home-bottom" [class.expanded]="isPanelExpanded()">
-      <button class="panel-grabber" type="button" [attr.aria-label]="isPanelExpanded() ? 'Réduire le panel' : 'Agrandir le panel'" [attr.aria-expanded]="isPanelExpanded()" (click)="togglePanel()"></button>
-
-      <div class="home-cols-header">
+    <div class="home-bottom" 
+         [class.dragging]="isDragging()" 
+         [style.flex-basis]="panelHeight() + 'px'">
+      <button class="panel-grabber" type="button" 
+              [attr.aria-label]="'Ajuster le panneau'" 
+              (pointerdown)="onDragStart($event)"
+              (click)="togglePanel()"></button>
+ 
+      <div class="home-cols-header" (pointerdown)="onDragStart($event)">
         <div class="home-col-tabs">
           <button class="col-tab" [class.active]="activeTab() === 'buses'" (click)="setTab('buses')">Bus actifs</button>
           <button class="col-tab" [class.active]="activeTab() === 'top'" (click)="setTab('top')">Top signaleurs</button>

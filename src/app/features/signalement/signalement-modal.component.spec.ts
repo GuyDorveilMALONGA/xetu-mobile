@@ -101,7 +101,7 @@ describe('SignalementModalComponent', () => {
     tick(); // resolve geolocation promise
 
     expect(component.gpsCoords()).toEqual({ lat: 14.68, lon: -17.45 });
-    expect(apiServiceSpy.getNearby).toHaveBeenCalledWith(14.68, -17.45);
+    expect(apiServiceSpy.getNearby).toHaveBeenCalledWith(14.68, -17.45, 'session_123');
     expect(component.nearbyStops()).toContain({ name: 'Fann', dist: 100 });
   }));
 

@@ -363,8 +363,8 @@ export class MesLignesPage implements OnInit, OnDestroy {
         onSubscribe: (ligne: string) => this.subscribe(ligne),
         onUnsubscribe: (ligne: string) => this.unsubscribe(ligne)
       },
-      breakpoints: [0, 0.6, 0.9],
-      initialBreakpoint: 0.6
+      breakpoints: [0, 0.5],
+      initialBreakpoint: 0.5
     });
 
     await modal.present();

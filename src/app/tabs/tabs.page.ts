@@ -2,6 +2,7 @@ import { Component, EnvironmentInjector, inject, OnInit, OnDestroy, signal } fro
 import { IonTabs, IonTabBar, IonTabButton, IonLabel } from '@ionic/angular/standalone';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor, PluginListenerHandle } from '@capacitor/core';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-tabs',
@@ -11,7 +12,12 @@ import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 })
 export class TabsPage implements OnInit, OnDestroy {
   public environmentInjector = inject(EnvironmentInjector);
+  private router = inject(Router);
   isTabBarVisible = signal<boolean>(true);
+
+  isMapPage(): boolean {
+    return this.router.url.startsWith('/tabs/carte') || this.router.url === '/';
+  }
 
   private keyboardShowListener: PluginListenerHandle | null = null;
   private keyboardHideListener: PluginListenerHandle | null = null;

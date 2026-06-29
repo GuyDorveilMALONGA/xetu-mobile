@@ -285,7 +285,7 @@ describe('ItinerairePage', () => {
     expect(apiServiceSpy.getRoute).toHaveBeenCalledWith('Sandaga', 'Plateau');
   }));
 
-  it('should reset all trip state on resetTrip', () => {
+  it('should reset trip visibility but preserve search queries on resetTrip', () => {
     const fixture = TestBed.createComponent(ItinerairePage);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -297,8 +297,8 @@ describe('ItinerairePage', () => {
     component.resetTrip();
 
     expect(component.resultVisible()).toBeFalse();
-    expect(component.fromQuery()).toBe('');
-    expect(component.toQuery()).toBe('');
+    expect(component.fromQuery()).toBe('Fann');
+    expect(component.toQuery()).toBe('Leclerc');
   });
 
   describe('calcFromTo result branches', () => {
