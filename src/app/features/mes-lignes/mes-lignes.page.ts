@@ -1,26 +1,13 @@
-import { Component, OnInit, OnDestroy, signal, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  IonContent,
-  IonHeader,
-  IonTitle,
-  IonToolbar,
-  IonButton,
-  IonIcon,
-  IonFab,
-  IonFabButton,
-  IonButtons,
-  ModalController
-} from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import { add, trash, megaphone } from 'ionicons/icons';
+import { IonContent, ModalController } from '@ionic/angular/standalone';
 import { ApiService } from '../../core/services/api.service';
 import { StoreService } from '../../core/services/store.service';
 import { SessionService } from '../../core/services/session.service';
+import { ScoreService } from '../../core/services/score.service';
 import { PREFERENCES_TOKEN } from '../../core/services/preferences.token';
 import { PreferencesPlugin } from '@capacitor/preferences';
-import { SubscribeModalComponent, LIGNE_NAMES } from './subscribe-modal.component';
-import { SignalementModalComponent } from '../signalement/signalement-modal.component';
+import { SubscribeModalComponent } from './subscribe-modal.component';
 import { firstValueFrom } from 'rxjs';
 
 interface PendingOp {
@@ -33,22 +20,30 @@ interface PendingOp {
   templateUrl: './mes-lignes.page.html',
   styleUrls: ['./mes-lignes.page.scss'],
   standalone: true,
-  imports: [
-    CommonModule,
-    IonContent,
-    IonHeader,
-    IonTitle,
-    IonToolbar,
-    IonButton,
-    IonIcon,
-    IonFab,
-    IonFabButton,
-    IonButtons
-  ]
+  imports: [CommonModule, IonContent]
 })
 export class MesLignesPage implements OnInit, OnDestroy {
   subscriptions = this.storeService.subscriptions;
   isOffline = signal<boolean>(!navigator.onLine);
+
+  knownLines: string[] = [];
+  lineNames: Record<string, string> = {};
+
+  readonly scorePoints = this.scoreService.points;
+  readonly scoreBadge = computed(() => this.scoreService.getBadge(this.scorePoints()));
+  readonly scoreNext = computed(() => this.scoreService.getNextBadge(this.scorePoints()));
+  readonly scorePct = computed(() => {
+    const next = this.scoreNext();
+    return next ? Math.min(Math.round((this.scorePoints() / next.min) * 100), 100) : 100;
+  });
+  readonly scoreStatusTitle = computed(() => {
+    const badge = this.scoreBadge();
+    return badge.min === 0 ? 'Nouveau contributeur' : `Contributeur ${badge.label.toLowerCase()}`;
+  });
+  readonly scoreRemaining = computed(() => {
+    const next = this.scoreNext();
+    return next ? next.min - this.scorePoints() : 0;
+  });
 
   private onlineListener: any = null;
   private offlineListener: any = null;
@@ -57,22 +52,14 @@ export class MesLignesPage implements OnInit, OnDestroy {
     private apiService: ApiService,
     private storeService: StoreService,
     private sessionService: SessionService,
+    private scoreService: ScoreService,
     private modalCtrl: ModalController,
     @Inject(PREFERENCES_TOKEN) private preferences: PreferencesPlugin
-  ) {
-    addIcons({ add, trash, megaphone });
-  }
-
-  async openSignalement() {
-    const modal = await this.modalCtrl.create({
-      component: SignalementModalComponent
-    });
-    await modal.present();
-  }
+  ) {}
 
   async ngOnInit() {
-    // 1. Load local cache first for instant boot
-    await this.loadLocalCache();
+    // 1. Load local cache + line names in parallel for instant boot
+    await Promise.all([this.loadLocalCache(), this.loadLineNames()]);
 
     // 2. Register online/offline listeners
     this.registerNetworkListeners();
@@ -152,10 +139,28 @@ export class MesLignesPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Gets the line description from the local dictionary
+   * Loads the real MVP line names from the embedded local index
+   * (same source as itineraire.page.ts and signalement-modal.component.ts.mvpLines)
+   */
+  private async loadLineNames() {
+    try {
+      const data = await firstValueFrom(this.apiService.getLocalStopsIndex());
+      const entries = Object.entries(data.lignes || {});
+      this.knownLines = entries.map(([num]) => num).sort((a, b) => parseFloat(a) - parseFloat(b));
+      this.lineNames = entries.reduce((acc, [num, ligne]) => {
+        acc[num] = ligne.terminus_a && ligne.terminus_b ? `${ligne.terminus_a} ↔ ${ligne.terminus_b}` : `Ligne ${num}`;
+        return acc;
+      }, {} as Record<string, string>);
+    } catch (e) {
+      console.warn('Failed to load local lines index:', e);
+    }
+  }
+
+  /**
+   * Gets the line description from the real MVP lines index
    */
   getLineDescription(ligne: string): string {
-    return LIGNE_NAMES[ligne] || 'Ligne de bus Dakar';
+    return this.lineNames[ligne] || `Ligne ${ligne}`;
   }
 
   /**
@@ -169,7 +174,7 @@ export class MesLignesPage implements OnInit, OnDestroy {
     try {
       // Fetch current state from the server
       const res = await firstValueFrom(this.apiService.getSubscriptions(sessionId));
-      
+
       // Update local state with the server's list
       this.subscriptions.set(res.lignes || []);
       await this.saveLocalCache(res.lignes || []);
@@ -274,7 +279,7 @@ export class MesLignesPage implements OnInit, OnDestroy {
   /**
    * Subscribe to a line (Optimistic UI)
    */
-  async subscribe(ligne: string) {
+  async subscribe(ligne: string): Promise<boolean> {
     // 1. Optimistic UI update
     const current = this.subscriptions();
     if (!current.includes(ligne)) {
@@ -286,29 +291,31 @@ export class MesLignesPage implements OnInit, OnDestroy {
     // 2. Process API call
     if (this.isOffline()) {
       await this.queuePendingOp('subscribe', ligne);
-      return;
+      return true;
     }
 
     try {
       await this.sessionService.ensureSession();
       await firstValueFrom(this.apiService.createSubscription(ligne));
+      return true;
     } catch (err) {
       if (this.shouldQueueForRetry(err)) {
         console.warn(`Failed to subscribe to line ${ligne}, queueing for retry:`, err);
         await this.queuePendingOp('subscribe', ligne);
-        return;
+        return true;
       }
 
       this.subscriptions.set(current);
       await this.saveLocalCache(current);
       console.warn(`Failed to subscribe to line ${ligne}, reverted optimistic update:`, err);
+      return false;
     }
   }
 
   /**
    * Unsubscribe from a line (Optimistic UI)
    */
-  async unsubscribe(ligne: string) {
+  async unsubscribe(ligne: string): Promise<boolean> {
     // 1. Optimistic UI update
     const current = this.subscriptions();
     if (current.includes(ligne)) {
@@ -320,47 +327,46 @@ export class MesLignesPage implements OnInit, OnDestroy {
     // 2. Process API call
     if (this.isOffline()) {
       await this.queuePendingOp('unsubscribe', ligne);
-      return;
+      return true;
     }
 
     try {
       await this.sessionService.ensureSession();
       await firstValueFrom(this.apiService.deleteSubscription(ligne));
+      return true;
     } catch (err) {
       if (this.shouldQueueForRetry(err)) {
         console.warn(`Failed to unsubscribe from line ${ligne}, queueing for retry:`, err);
         await this.queuePendingOp('unsubscribe', ligne);
-        return;
+        return true;
       }
 
       this.subscriptions.set(current);
       await this.saveLocalCache(current);
       console.warn(`Failed to unsubscribe from line ${ligne}, reverted optimistic update:`, err);
+      return false;
     }
   }
 
   /**
-   * Opens the subscribe bottom-sheet modal
+   * Opens the subscribe bottom-sheet modal. Toggling happens live via
+   * onSubscribe/onUnsubscribe callbacks (modal stays open, mirrors
+   * Dashboard/js/mylines.js _renderSubscribeLines), not via dismiss data.
    */
   async openSubscribeModal() {
     const modal = await this.modalCtrl.create({
       component: SubscribeModalComponent,
       componentProps: {
-        currentSubscriptions: this.subscriptions()
+        currentSubscriptions: this.subscriptions(),
+        knownLines: this.knownLines,
+        lineNames: this.lineNames,
+        onSubscribe: (ligne: string) => this.subscribe(ligne),
+        onUnsubscribe: (ligne: string) => this.unsubscribe(ligne)
       },
       breakpoints: [0, 0.6, 0.9],
       initialBreakpoint: 0.6
     });
 
     await modal.present();
-
-    const { data } = await modal.onWillDismiss();
-    if (data && data.action && data.ligne) {
-      if (data.action === 'subscribe') {
-        await this.subscribe(data.ligne);
-      } else {
-        await this.unsubscribe(data.ligne);
-      }
-    }
   }
 }

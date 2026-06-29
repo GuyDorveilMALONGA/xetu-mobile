@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
 import { StoreService } from './store.service';
-import { WsWelcome, WsChatResponse, WsTyping, WsStatus, WsReportAck, WsError } from '../models/models';
+import { WsChatResponse, WsTyping, WsStatus, WsReportAck, WsError } from '../models/models';
 
 @Injectable({
   providedIn: 'root'
@@ -77,10 +77,7 @@ export class WsService {
 
       switch (payload.type) {
         case 'welcome':
-          const welcome = payload as WsWelcome;
-          if (welcome.suggestions && welcome.suggestions.length) {
-            this.storeService.chatSuggestions.set(welcome.suggestions);
-          }
+          // Backend may send welcome.suggestions, but mobile intentionally does not render suggestions.
           break;
         case 'chat_response':
           const chatResponse = payload as WsChatResponse;
@@ -214,13 +211,17 @@ export class WsService {
   }
 
   sendChat(text: string): boolean {
-    // Add user message to state
+    const sent = this.send({ type: 'chat', text });
+    if (!sent) {
+      return false;
+    }
+
     const currentMsgs = this.storeService.messages();
     this.storeService.messages.set([
       ...currentMsgs,
       { role: 'user', text, time: this.getCurrentTime() }
     ]);
-    return this.send({ type: 'chat', text });
+    return true;
   }
 
   sendReport(ligne: string, arret: string, observation?: string, lat?: number, lon?: number): boolean {

@@ -12,7 +12,9 @@ import {
   SubscriptionsResponse,
   LeaderboardResponse,
   ReportRequest,
-  ReportResponse
+  ReportResponse,
+  XetuMvpData,
+  SecteursDakarData
 } from '../models/models';
 
 @Injectable({
@@ -77,6 +79,14 @@ export class ApiService {
     return this.http
       .get<StopsSearchResponse>(`${environment.apiBase}/api/stops/search`, { params })
       .pipe(this.applyRetry());
+  }
+
+  getLocalStopsIndex(): Observable<XetuMvpData> {
+    return this.http.get<XetuMvpData>('assets/data/xetu_mvp.json');
+  }
+
+  getLocalSecteurs(): Observable<SecteursDakarData> {
+    return this.http.get<SecteursDakarData>('assets/data/secteurs_dakar.json');
   }
 
   getNearby(lat: number, lon: number, sessionId?: string): Observable<NearbyResponse> {

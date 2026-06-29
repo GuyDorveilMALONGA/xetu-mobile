@@ -2,6 +2,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { CartePage } from './carte.page';
 import { ApiService } from '../../core/services/api.service';
 import { StoreService } from '../../core/services/store.service';
+import { SessionService } from '../../core/services/session.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { of, throwError } from 'rxjs';
@@ -13,12 +14,14 @@ describe('CartePage', () => {
   let storeService: StoreService;
   let geolocationMock: jasmine.SpyObj<GeolocationPlugin>;
   let modalCtrlSpy: jasmine.SpyObj<ModalController>;
+  let sessionServiceSpy: jasmine.SpyObj<SessionService>;
   let mapDiv: HTMLDivElement;
 
   beforeEach(async () => {
-    const apiSpy = jasmine.createSpyObj('ApiService', ['getBuses']);
+    const apiSpy = jasmine.createSpyObj('ApiService', ['getBuses', 'getNearby', 'getLeaderboard']);
     const geoSpy = jasmine.createSpyObj('GeolocationPlugin', ['getCurrentPosition']);
     const modalSpy = jasmine.createSpyObj('ModalController', ['create']);
+    const sessionSpy = jasmine.createSpyObj('SessionService', ['getSessionId', 'getToken']);
 
     // Create a real DOM element for the Leaflet map container
     mapDiv = document.createElement('div');
@@ -33,6 +36,7 @@ describe('CartePage', () => {
         { provide: ApiService, useValue: apiSpy },
         { provide: GEOLOCATION_TOKEN, useValue: geoSpy },
         { provide: ModalController, useValue: modalSpy },
+        { provide: SessionService, useValue: sessionSpy },
         StoreService
       ]
     }).compileComponents();
@@ -41,10 +45,17 @@ describe('CartePage', () => {
     storeService = TestBed.inject(StoreService);
     geolocationMock = TestBed.inject(GEOLOCATION_TOKEN) as jasmine.SpyObj<GeolocationPlugin>;
     modalCtrlSpy = TestBed.inject(ModalController) as jasmine.SpyObj<ModalController>;
+    sessionServiceSpy = TestBed.inject(SessionService) as jasmine.SpyObj<SessionService>;
 
     // Default mock setups
     apiServiceSpy.getBuses.and.returnValue(of({ buses: [], total: 0, timestamp: '' }));
+    apiServiceSpy.getNearby.and.returnValue(of({ status: 'empty', message: '', stops: [] }));
+    apiServiceSpy.getLeaderboard.and.returnValue(of({
+      leaderboard: [],
+      stats: { total_signalements_aujourd_hui: 0, total_signalements_all_time: 0, nb_contributeurs: 0 }
+    }));
     modalCtrlSpy.create.and.resolveTo({ present: jasmine.createSpy('present').and.resolveTo() } as any);
+    sessionServiceSpy.getSessionId.and.returnValue('test-session');
     geolocationMock.getCurrentPosition.and.resolveTo({
       timestamp: Date.now(),
       coords: {
@@ -255,12 +266,132 @@ describe('CartePage', () => {
   it('should destroy map and clear markers on ionViewDidLeave', fakeAsync(() => {
     const fixture = TestBed.createComponent(CartePage);
     const component = fixture.componentInstance;
-    
+
     component.ionViewDidEnter();
     tick(250);
 
     expect(component['map']).toBeTruthy();
     component.ionViewDidLeave();
     expect(component['map']).toBeNull();
+  }));
+
+  it('should stop the 30s polling on ionViewDidLeave and not refetch afterwards', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    const callsBeforeLeave = apiServiceSpy.getBuses.calls.count();
+    component.ionViewDidLeave();
+
+    tick(30000);
+    expect(apiServiceSpy.getBuses.calls.count()).toBe(callsBeforeLeave);
+  }));
+
+  it('should stop the 30s polling on ngOnDestroy even if ionViewDidLeave was not called', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    const callsBeforeDestroy = apiServiceSpy.getBuses.calls.count();
+    component.ngOnDestroy();
+
+    tick(30000);
+    expect(apiServiceSpy.getBuses.calls.count()).toBe(callsBeforeDestroy);
+  }));
+
+  it('should refetch buses every 30s while the view stays active', fakeAsync(() => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    const initialCalls = apiServiceSpy.getBuses.calls.count();
+    tick(30000);
+    expect(apiServiceSpy.getBuses.calls.count()).toBe(initialCalls + 1);
+
+    component.ionViewDidLeave();
+  }));
+
+  it('should render badge.label when badge is an object, with a defensive fallback otherwise', () => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    expect(component.badgeLabel({ emoji: '🏆', label: 'Habitué', niveau: 2 })).toBe('Habitué');
+    expect(component.badgeLabel('Vétéran' as any)).toBe('Vétéran');
+    expect(component.badgeLabel(undefined as any)).toBe('Contributeur');
+  });
+
+  it('should escape line numbers before injecting Leaflet marker HTML', () => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance as any;
+
+    expect(component.escapeHtml('4<script>"x"&</script>')).toBe('4&lt;script&gt;&quot;x&quot;&amp;&lt;/script&gt;');
+  });
+
+  it('should expose the API error as the priority bus-list state', fakeAsync(() => {
+    apiServiceSpy.getBuses.and.returnValue(of({ buses: [], total: 0, timestamp: '', error: 'db_error' }));
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('db_error');
+    expect(text).not.toContain('Aucun bus actif. Le dernier signal');
+
+    component.ionViewDidLeave();
+  }));
+
+  it('should show the welcome message only once per page session, using the already-captured position', fakeAsync(() => {
+    apiServiceSpy.getNearby.and.returnValue(of({
+      status: 'success',
+      message: '',
+      stops: [{ nom: 'Fann', distance_m: 80, lignes: ['4', '7'] }]
+    }));
+
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    expect(geolocationMock.getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(apiServiceSpy.getNearby).toHaveBeenCalledTimes(1);
+    expect(component.welcomeMessage()).toContain('Fann');
+
+    component.dismissWelcome();
+    component.ionViewDidLeave();
+
+    // Re-entering the page should not show the welcome message again.
+    component.ionViewDidEnter();
+    tick(250);
+
+    expect(geolocationMock.getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(apiServiceSpy.getNearby).toHaveBeenCalledTimes(1);
+    expect(component.welcomeMessage()).toBeNull();
+
+    component.ionViewDidLeave();
+  }));
+
+  it('should not block the map when getNearby fails', fakeAsync(() => {
+    apiServiceSpy.getNearby.and.returnValue(throwError(() => new Error('network error')));
+
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    component.ionViewDidEnter();
+    tick(250);
+
+    expect(component['map']).toBeTruthy();
+    expect(component.welcomeMessage()).toBeNull();
+
+    component.ionViewDidLeave();
   }));
 });

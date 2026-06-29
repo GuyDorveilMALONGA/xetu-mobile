@@ -57,4 +57,27 @@ describe('WsService', () => {
     expect(storeService.wsStatus()).toBe('failed');
     expect(mockWebSocketConstructor).not.toHaveBeenCalled();
   });
+
+  it('should not append a user chat message when the websocket send fails', () => {
+    const sent = service.sendChat('Bus 4 ?');
+
+    expect(sent).toBeFalse();
+    expect(storeService.messages()).toEqual([]);
+  });
+
+  it('should append a user chat message only after websocket send succeeds', () => {
+    const mockWsInstance = {
+      readyState: WebSocket.OPEN,
+      send: jasmine.createSpy('send')
+    };
+    (service as any).ws = mockWsInstance;
+
+    const sent = service.sendChat('Bus 4 ?');
+
+    expect(sent).toBeTrue();
+    expect(mockWsInstance.send).toHaveBeenCalledWith(JSON.stringify({ type: 'chat', text: 'Bus 4 ?' }));
+    expect(storeService.messages()).toEqual([
+      jasmine.objectContaining({ role: 'user', text: 'Bus 4 ?' })
+    ]);
+  });
 });

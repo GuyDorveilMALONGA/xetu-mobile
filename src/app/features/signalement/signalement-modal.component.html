@@ -1,178 +1,313 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Signaler un bus</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="dismiss()">Fermer</ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-  <ion-progress-bar [value]="getProgressValue()"></ion-progress-bar>
-</ion-header>
+<div class="screen-signal screen active" id="screen-signal">
+  <!-- Topbar -->
+  <div class="signal-topbar">
+    <button class="btn-back" id="btn-back-signal" aria-label="Retour" (click)="dismiss()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+    </button>
+    <span class="signal-topbar-title">Signaler un bus</span>
+    <div style="flex:1"></div>
+    @if (step() <= 3) {
+      <span class="signal-topbar-step" id="sg-step-counter">{{ step() }}/3</span>
+    }
+  </div>
 
-<ion-content class="ion-padding signalement-content">
-  <!-- SUCCESS STATE -->
-  @if (showSuccess()) {
-    <div class="success-container animate-fade">
-      <div class="success-icon-wrapper">
-        <ion-icon name="checkmark-circle" color="success" class="success-checkmark"></ion-icon>
-      </div>
-      <h2>Merci beaucoup !</h2>
-      <p>Votre signalement a été enregistré avec succès.</p>
-      <p class="subtitle">Il est maintenant visible par la communauté Xëtu. 🚌</p>
+  <!-- Progress bar -->
+  <div class="sg-progress" id="sg-progress" [hidden]="step() === 4">
+    <div class="sg-progress-step" [class.active]="step() === 1" [class.done]="step() > 1" id="sg-prog-1">
+      <div class="sg-progress-circle"><span class="sg-progress-num">1</span></div>
+      <span class="sg-progress-label">Ligne</span>
     </div>
-  }
-  
-  <!-- RATE LIMIT STATE (429) -->
-  @else if (rateLimitCountdown() > 0) {
-    <div class="error-container animate-fade">
-      <ion-icon name="alert-circle" color="warning" class="error-large-icon"></ion-icon>
-      <h2>Trop de signalements</h2>
-      <p>Pour éviter les spams, vous devez patienter un instant avant d'envoyer un nouveau signalement.</p>
-      
-      <div class="countdown-circle">
-        <span class="countdown-number">{{ rateLimitCountdown() }}</span>
-        <span class="countdown-unit">secondes</span>
-      </div>
-      
-      <p class="subtitle">Merci de votre patience !</p>
+    <div class="sg-progress-line" [class.done]="step() > 1" id="sg-line-1"></div>
+    <div class="sg-progress-step" [class.active]="step() === 2" [class.done]="step() > 2" id="sg-prog-2">
+      <div class="sg-progress-circle"><span class="sg-progress-num">2</span></div>
+      <span class="sg-progress-label">Arrêt</span>
     </div>
-  }
+    <div class="sg-progress-line" [class.done]="step() > 2" id="sg-line-2"></div>
+    <div class="sg-progress-step" [class.active]="step() === 3" [class.done]="step() > 3" id="sg-prog-3">
+      <div class="sg-progress-circle"><span class="sg-progress-num">3</span></div>
+      <span class="sg-progress-label">Envoi</span>
+    </div>
+  </div>
 
-  <!-- WIZARD STEPS -->
-  @else {
-    <!-- STEP 1: SELECT LINE -->
+  <!-- Steps wrapper with IonContent for safe-area / scroll -->
+  <ion-content class="signal-step-scroll" [scrollY]="true">
+    
+    <!-- Step 1 : Ligne -->
     @if (step() === 1) {
-      <div class="step-container animate-fade">
-        <p class="step-title">Étape 1 : Choisir la ligne de bus</p>
-        <div class="lines-grid">
-          @for (line of mvpLines; track line) {
-            <button class="line-tile" (click)="selectLigne(line)">
-              <span class="line-num">{{ line }}</span>
-              <span class="line-label">Ligne {{ line }}</span>
+      <div class="sg-step active" id="sg-step-1" style="padding:14px 16px 80px;">
+        <div class="form-section">
+          <div id="ligne-grid">
+            <div class="sg-grid-wrap">
+              <div class="sg-priority-grid">
+                @for (line of mvpLines; track line) {
+                  <button class="sg-chip" [class.sg-chip--selected]="selectedLigne() === line" (click)="selectLigne(line)">
+                    {{ line }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Step 2 : Arrêt -->
+    @if (step() === 2) {
+      <div class="sg-step" id="sg-step-2" style="padding:14px 16px 80px; display:flex; flex-direction:column; gap:14px;">
+        <!-- Line badge reminder -->
+        <div class="sg-step2-header">
+          <div class="sg-step2-badge" id="sg-step2-badge">{{ selectedLigne() }}</div>
+          <span class="sg-step2-label">Où est ce bus en ce moment ?</span>
+        </div>
+
+        <!-- Mini map Leaflet (Light visual version as per user constraint) -->
+        <div class="sg-mini-map-wrap">
+          <div class="light-map-placeholder">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted); opacity: 0.5; margin-bottom: 8px;">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+            <span style="color: var(--muted); font-size: 12px;">Position via GPS</span>
+          </div>
+          <div class="sg-map-status-badge" id="sg-map-status">
+            {{ isGpsLoading() ? 'Position en attente...' : (gpsCoords() ? 'Position détectée' : 'GPS non disponible') }}
+          </div>
+          @if (isGpsLoading()) {
+            <div id="gps-spinner" class="gps-spinner-overlay">
+              <span class="gps-spinner-dot"></span>
+              <span class="gps-spinner-dot"></span>
+              <span class="gps-spinner-dot"></span>
+            </div>
+          }
+        </div>
+
+        <!-- Arrêts proches -->
+        <div class="sg-step2-nearby">
+          <div class="sg-stops-section-title">Arrêts proches de vous</div>
+          <div id="sg-stops-list" style="display:flex; flex-direction:column; gap:6px;">
+            @if (isGpsLoading()) {
+              <div class="sg-stop-card" style="opacity:0.4; pointer-events:none;">
+                <div class="sg-stop-dot"></div>
+                <div><div class="sg-stop-name">En attente du GPS…</div></div>
+              </div>
+            } @else if (nearbyStops().length > 0 && !searchQuery.trim()) {
+              @for (stop of nearbyStops(); track stop.name) {
+                <button class="sg-stop-card" (click)="selectArret(stop.name)">
+                  <div class="sg-stop-dot"></div>
+                  <div style="flex:1">
+                    <div class="sg-stop-name">{{ stop.name }}</div>
+                    @if (stop.dist) {
+                      <div class="sg-stop-dist">{{ stop.dist }}m</div>
+                    }
+                  </div>
+                  <span class="sg-stop-chevron">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </span>
+                </button>
+              }
+            } @else if (nearbyStops().length === 0 && !isGpsLoading() && !searchQuery.trim()) {
+              <div class="sg-stop-card" style="opacity:0.4; pointer-events:none;">
+                <div class="sg-stop-dot"></div>
+                <div><div class="sg-stop-name">Aucun arrêt proche trouvé</div></div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Champ texte manuel -->
+        <div class="sg-step2-manual">
+          <div class="sg-stops-section-title">Ou saisissez un arrêt</div>
+          <div class="arret-wrap">
+            <input type="text" class="sg-search arret-input" id="arret-input"
+                   placeholder="Tapez un arrêt…"
+                   autocomplete="off" maxlength="80"
+                   [value]="searchQuery"
+                   (input)="onSearchInput($event)">
+          </div>
+
+          @if (isSearchLoading()) {
+            <div style="padding: 12px; text-align: center; color: var(--muted); font-size: 13px;">Recherche...</div>
+          } @else if (searchResults().length > 0) {
+            <div id="arret-dropdown" class="arret-dropdown" style="position: relative; margin-top: 4px;">
+              @for (res of searchResults(); track res) {
+                <div class="arret-dropdown-item" (click)="selectArret(res)">{{ res }}</div>
+              }
+            </div>
+          }
+
+          @if (manualStopLabel()) {
+            <button class="sg-confirm-stop" id="sg-confirm-stop" type="button" (click)="selectArret(manualStopLabel())">
+              Confirmer "{{ manualStopLabel() }}"
             </button>
           }
         </div>
+
+        <div class="sg-step-nav">
+          <button class="sg-btn-back-step" id="sg-back-1" (click)="goBack()">← Ligne</button>
+          <button class="sg-btn-next-step" id="sg-next-2" type="button"
+                  [disabled]="!manualStopLabel()"
+                  (click)="selectArret(manualStopLabel())">
+            Suivant →
+          </button>
+        </div>
       </div>
     }
 
-    <!-- STEP 2: SELECT STOP -->
-    @if (step() === 2) {
-      <div class="step-container animate-fade">
-        <p class="step-title">Étape 2 : Choisir l'arrêt où vous êtes</p>
-        
-        <ion-searchbar
-          placeholder="Rechercher l'arrêt (ex: Fann, Hlm)..."
-          [(ngModel)]="searchQuery"
-          (ionInput)="onSearchInput()"
-          [debounce]="200">
-        </ion-searchbar>
-
-        <!-- GPS / Nearby Stops Section -->
-        @if (isGpsLoading()) {
-          <div class="gps-loading">
-            <ion-spinner name="crescent" size="small" color="primary"></ion-spinner>
-            <span>Recherche des arrêts à proximité via GPS...</span>
-          </div>
-        } @else if (nearbyStops().length > 0 && !searchQuery.trim()) {
-          <div class="nearby-section">
-            <p class="section-subtitle">📍 Arrêts les plus proches</p>
-            <ion-list lines="none" class="stops-list">
-              @for (stop of nearbyStops(); track stop) {
-                <ion-item button (click)="selectArret(stop)" class="stop-item">
-                  <ion-icon name="pin" slot="start" color="primary"></ion-icon>
-                  <ion-label>{{ stop }}</ion-label>
-                </ion-item>
-              }
-            </ion-list>
-          </div>
-        }
-
-        <!-- Search Results List -->
-        @if (searchResults().length > 0) {
-          <div class="search-results-section">
-            <p class="section-subtitle">🔍 Résultats de recherche</p>
-            <ion-list lines="none" class="stops-list">
-              @for (stop of searchResults(); track stop) {
-                <ion-item button (click)="selectArret(stop)" class="stop-item">
-                  <ion-label>{{ stop }}</ion-label>
-                </ion-item>
-              }
-            </ion-list>
-          </div>
-        } @else if (searchQuery.trim().length >= 2 && !isSearchLoading()) {
-          <div class="no-results">
-            <p>Aucun arrêt trouvé pour "{{ searchQuery }}"</p>
-          </div>
-        }
-
-        @if (isSearchLoading()) {
-          <div class="search-loading">
-            <ion-spinner name="crescent" size="small"></ion-spinner>
-          </div>
-        }
-      </div>
-    }
-
-    <!-- STEP 3: DETAILS & SUBMIT -->
+    <!-- Step 3 : Envoi -->
     @if (step() === 3) {
-      <div class="step-container animate-fade">
-        <p class="step-title">Étape 3 : Valider les détails</p>
-
-        <ion-card class="summary-card">
-          <ion-card-content>
-            <div class="summary-row">
-              <span class="label">Ligne :</span>
-              <span class="value-badge">{{ selectedLigne() }}</span>
+      <div class="sg-step" id="sg-step-3" style="padding:12px 16px 80px; display:flex; flex-direction:column; gap:10px;">
+        
+        <!-- Recap inline -->
+        <div class="sg-recap-inline">
+          <div class="sg-recap-eyebrow">Récapitulatif</div>
+          <div class="sg-recap-row-v3">
+            <div class="sg-recap-icon sg-recap-icon--bus">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+              </svg>
             </div>
-            <div class="summary-row">
-              <span class="label">Arrêt :</span>
-              <span class="value-text">{{ selectedArret() }}</span>
+            <div>
+              <div class="sg-recap-meta-label">Ligne</div>
+              <div class="sg-recap-meta-val sg-recap-meta-val--ligne" id="rc-ligne">{{ selectedLigne() }}</div>
             </div>
-            @if (gpsCoords()) {
-              <div class="summary-row gps-row">
-                <ion-icon name="pin" color="success"></ion-icon>
-                <span class="gps-text">Position GPS enregistrée</span>
-              </div>
-            }
-          </ion-card-content>
-        </ion-card>
-
-        <p class="input-label">Où vous situez-vous ?</p>
-        <div class="mode-selector">
-          <button class="mode-btn" [class.active]="mode() === 'vu'" (click)="mode.set('vu')">
-            <span class="mode-icon">👁️</span>
-            <span class="mode-title">Je l'ai vu passer</span>
-            <span class="mode-desc">Le bus est passé devant l'arrêt</span>
-          </button>
-
-          <button class="mode-btn" [class.active]="mode() === 'dedans'" (click)="mode.set('dedans')">
-            <span class="mode-icon">🚌</span>
-            <span class="mode-title">Je suis dedans</span>
-            <span class="mode-desc">Je voyage actuellement à bord</span>
-          </button>
+          </div>
+          <div class="sg-recap-row-v3">
+            <div class="sg-recap-icon sg-recap-icon--pin">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="sg-recap-meta-label">Arrêt</div>
+              <div class="sg-recap-meta-val" id="rc-arret">{{ selectedArret() }}</div>
+            </div>
+          </div>
+          <div class="sg-recap-row-v3">
+            <div class="sg-recap-icon sg-recap-icon--time">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div>
+              <div class="sg-recap-meta-label">Heure</div>
+              <div class="sg-recap-meta-val sg-recap-meta-val--time">maintenant</div>
+            </div>
+          </div>
+          <div class="sg-recap-row-v3">
+            <div class="sg-recap-icon sg-recap-icon--mode">
+              <span class="xetu-icon" [class.xetu-icon--seen]="mode() === 'vu'" [class.xetu-icon--rider]="mode() === 'dedans'" aria-hidden="true"></span>
+            </div>
+            <div>
+              <div class="sg-recap-meta-label">Mode</div>
+              <div class="sg-recap-meta-val" id="rc-mode">{{ mode() === 'vu' ? 'Bus aperçu' : 'À bord' }}</div>
+            </div>
+          </div>
         </div>
 
-        <p class="input-label">Observation (optionnelle)</p>
-        <textarea
-          class="xetu-textarea"
-          placeholder="Ex: Très chargé, Panne, Trafic lent..."
-          [(ngModel)]="observation"
-          maxlength="140">
-        </textarea>
-
-        <div class="action-buttons-row">
-          <ion-button fill="outline" class="back-btn" (click)="goBack()" [disabled]="isSubmitting()">
-            Retour
-          </ion-button>
-
-          <ion-button expand="block" class="submit-btn" (click)="submitReport()" [disabled]="isSubmitting()">
-            @if (isSubmitting()) {
-              <ion-spinner name="crescent" size="small"></ion-spinner>
-            } @else {
-              Valider le signalement
-            }
-          </ion-button>
+        <!-- Mode -->
+        <div>
+          <div class="sg-stops-section-title">Type de signalement</div>
+          <div class="sg-mode-wrap" role="radiogroup" aria-label="Type de signalement">
+            <button class="sg-mode-option" [class.selected]="mode() === 'vu'" type="button" (click)="mode.set('vu')">
+              <span class="xetu-icon xetu-icon--seen" aria-hidden="true"></span>
+              <span>
+                <span class="sg-mode-title">J'ai vu le bus</span>
+                <span class="sg-mode-sub">Affiche un bus aperçu quelques minutes</span>
+              </span>
+            </button>
+            <button class="sg-mode-option" [class.selected]="mode() === 'dedans'" type="button" (click)="mode.set('dedans')">
+              <span class="xetu-icon xetu-icon--rider" aria-hidden="true"></span>
+              <span>
+                <span class="sg-mode-title">Je suis dans le bus</span>
+                <span class="sg-mode-sub">Position plus fiable, relançable si elle vieillit</span>
+              </span>
+            </button>
+          </div>
         </div>
+
+        <!-- Quality Tags -->
+        <div>
+          <div class="sg-stops-section-title">
+            Observation <span style="text-transform:none; font-weight:400">(optionnel)</span>
+          </div>
+          <div class="sg-quality-wrap quality-tags">
+            <button class="quality-tag sg-chip" [class.sg-chip--selected]="selectedTags().includes('bondé')" (click)="toggleTag('bondé')">Bondé</button>
+            <button class="quality-tag sg-chip" [class.sg-chip--selected]="selectedTags().includes('vide')" (click)="toggleTag('vide')">Vide</button>
+            <button class="quality-tag sg-chip" [class.sg-chip--selected]="selectedTags().includes('en retard')" (click)="toggleTag('en retard')">En retard</button>
+            <button class="quality-tag sg-chip" [class.sg-chip--selected]="selectedTags().includes('parti')" (click)="toggleTag('parti')">Parti</button>
+          </div>
+        </div>
+
+        <!-- Observation Text -->
+        <div style="margin-top: 4px;">
+          <textarea class="sg-search arret-input" style="padding: 12px; height: 80px; resize: none; font-size: 14px; width: 100%; box-sizing: border-box;"
+                    placeholder="Précisions supplémentaires..."
+                    [(ngModel)]="observation" maxlength="140"></textarea>
+        </div>
+
+        <!-- Send -->
+        <button class="sg-btn-send-v3 btn-send" id="btn-send" (click)="submitReport()" [disabled]="isSubmitting()">
+          @if (isSubmitting()) {
+            <span>Envoi...</span>
+          } @else {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+            </svg>
+            Envoyer le signalement
+          }
+        </button>
+
+        <!-- RATE LIMIT STATE (429) inside step 3 just below submit -->
+        @if (rateLimitCountdown() > 0) {
+          <div class="geoloc-status geoloc-status--warn" style="margin-top: 10px; text-align: center;">
+            Trop de signalements. Veuillez patienter <strong>{{ rateLimitCountdown() }}s</strong> avant d'en envoyer un nouveau.
+          </div>
+        }
+
+        <button class="sg-btn-back-step" id="sg-back-2"
+                style="background:none;border:none;color:var(--muted);font-size:12px;
+                       font-family: var(--font-body);cursor:pointer;
+                       text-decoration:underline;text-underline-offset:3px; margin-top: 12px; align-self: center;"
+                (click)="goBack()">
+          Modifier l'arrêt
+        </button>
       </div>
     }
-  }
-</ion-content>
+
+    <!-- Success screen V3 -->
+    @if (step() === 4) {
+      <div class="sg-step" id="sg-success-screen"
+           style="display:flex; flex-direction:column; align-items:center;
+                  justify-content:center; padding:32px; gap:20px; min-height:60vh;">
+        <div class="sg-success-circle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="sg-success-text" style="text-align: center;">
+          <div class="sg-success-title">Signalement envoyé</div>
+          <div class="sg-success-sub" id="sg-success-sub">Il est maintenant visible par la communauté</div>
+        </div>
+        <div class="sg-points-card">
+          <div class="sg-points-val">+5</div>
+          <div>
+            <div class="sg-points-label">Points ajoutés</div>
+            <div class="sg-points-sub" id="sg-points-total">Score total : {{ scoreTotal() }} pts</div>
+          </div>
+        </div>
+        
+        <button class="sg-btn-send-v3 btn-success-new" id="btn-success-new" style="max-width:280px; box-shadow:none; margin-top: 20px;" (click)="dismiss()">
+          Retour à la carte
+        </button>
+      </div>
+    }
+
+  </ion-content>
+</div>

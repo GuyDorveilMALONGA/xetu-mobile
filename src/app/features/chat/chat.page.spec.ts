@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { ChatPage } from './chat.page';
 import { WsService } from '../../core/services/ws.service';
 import { StoreService } from '../../core/services/store.service';
@@ -10,6 +10,7 @@ describe('ChatPage', () => {
 
   beforeEach(async () => {
     const wsSpy = jasmine.createSpyObj('WsService', ['sendChat']);
+    wsSpy.sendChat.and.returnValue(true);
 
     await TestBed.configureTestingModule({
       imports: [ChatPage],
@@ -29,16 +30,17 @@ describe('ChatPage', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render welcome message when no messages exist', () => {
+  it('should always render the static welcome bubble', () => {
     const fixture = TestBed.createComponent(ChatPage);
     fixture.detectChanges();
-    
-    const welcome = fixture.debugElement.query(By.css('.welcome-card'));
-    expect(welcome).toBeTruthy();
-    expect(welcome.nativeElement.textContent).toContain('Salam ! Je suis Xëtu');
+
+    const firstBubble = fixture.debugElement.query(By.css('.chat-msg--bot .chat-bubble'));
+    expect(firstBubble).toBeTruthy();
+    expect(firstBubble.nativeElement.textContent).toContain('Salam !');
+    expect(firstBubble.nativeElement.textContent).toContain('Xëtu');
   });
 
-  it('should render message bubbles from StoreService', () => {
+  it('should render message bubbles from StoreService after the welcome bubble', () => {
     storeService.messages.set([
       { role: 'user', text: 'Hello', time: '12:00' },
       { role: 'bot', text: 'Hi *there*', time: '12:01' }
@@ -47,15 +49,16 @@ describe('ChatPage', () => {
     const fixture = TestBed.createComponent(ChatPage);
     fixture.detectChanges();
 
-    const bubbles = fixture.debugElement.queryAll(By.css('.message-bubble'));
-    expect(bubbles.length).toBe(2);
+    const rows = fixture.debugElement.queryAll(By.css('.chat-msg'));
+    // index 0 is the permanent welcome bubble, 1 and 2 are the StoreService messages
+    expect(rows.length).toBe(3);
 
-    expect(bubbles[0].nativeElement.textContent).toContain('Hello');
-    expect(bubbles[0].nativeElement.classList.contains('user-bubble')).toBeTrue();
+    expect(rows[1].nativeElement.classList.contains('chat-msg--user')).toBeTrue();
+    expect(rows[1].nativeElement.textContent).toContain('Hello');
 
-    // Markdown check (Hi *there* -> Hi <strong>there</strong>)
-    expect(bubbles[1].nativeElement.innerHTML).toContain('Hi <strong>there</strong>');
-    expect(bubbles[1].nativeElement.classList.contains('bot-bubble')).toBeTrue();
+    expect(rows[2].nativeElement.classList.contains('chat-msg--bot')).toBeTrue();
+    const botBubble = rows[2].query(By.css('.chat-bubble'));
+    expect(botBubble.nativeElement.innerHTML).toContain('Hi <strong>there</strong>');
   });
 
   it('should call WsService.sendChat when sending message', () => {
@@ -83,7 +86,7 @@ describe('ChatPage', () => {
     expect(wsServiceSpy.sendChat).not.toHaveBeenCalled();
   });
 
-  it('should not call WsService.sendChat if wsStatus is not open', () => {
+  it('should show a connecting status pill instead of sending if wsStatus is not open', () => {
     storeService.wsStatus.set('closed');
     const fixture = TestBed.createComponent(ChatPage);
     const component = fixture.componentInstance;
@@ -93,28 +96,21 @@ describe('ChatPage', () => {
     component.sendCurrentMessage();
 
     expect(wsServiceSpy.sendChat).not.toHaveBeenCalled();
+    expect(storeService.chatStatus()).toBe('Connexion au chat en cours...');
   });
 
-  it('should send suggestion immediately if wsStatus is open', () => {
+  it('should restore the composer text and show an unstable status when sendChat fails', () => {
+    wsServiceSpy.sendChat.and.returnValue(false);
     storeService.wsStatus.set('open');
     const fixture = TestBed.createComponent(ChatPage);
     const component = fixture.componentInstance;
     fixture.detectChanges();
 
-    component.onSuggestionClick('Bus 4 ?');
-    expect(wsServiceSpy.sendChat).toHaveBeenCalledWith('Bus 4 ?');
-    expect(component.composerText).toBe('');
-  });
+    component.composerText = 'Bus 4 ?';
+    component.sendCurrentMessage();
 
-  it('should only populate composerText when clicking suggestion if wsStatus is not open', () => {
-    storeService.wsStatus.set('connecting');
-    const fixture = TestBed.createComponent(ChatPage);
-    const component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    component.onSuggestionClick('Bus 4 ?');
-    expect(wsServiceSpy.sendChat).not.toHaveBeenCalled();
     expect(component.composerText).toBe('Bus 4 ?');
+    expect(storeService.chatStatus()).toBe('Connexion instable. Réessaie dans un instant.');
   });
 
   it('should show typing indicator when chatTyping is true', () => {
@@ -122,7 +118,7 @@ describe('ChatPage', () => {
     const fixture = TestBed.createComponent(ChatPage);
     fixture.detectChanges();
 
-    const typing = fixture.debugElement.query(By.css('.typing-bubble'));
+    const typing = fixture.debugElement.query(By.css('.chat-typing'));
     expect(typing).toBeTruthy();
   });
 
@@ -131,7 +127,7 @@ describe('ChatPage', () => {
     const fixture = TestBed.createComponent(ChatPage);
     fixture.detectChanges();
 
-    const pill = fixture.debugElement.query(By.css('.status-pill'));
+    const pill = fixture.debugElement.query(By.css('.chat-status-pill'));
     expect(pill).toBeTruthy();
     expect(pill.nativeElement.textContent).toBe('J\'analyse...');
   });

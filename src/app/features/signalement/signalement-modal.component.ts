@@ -1,33 +1,14 @@
-import { Component, OnInit, OnDestroy, signal, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, Inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {
-  IonContent,
-  IonHeader,
-  IonTitle,
-  IonToolbar,
-  IonButton,
-  IonIcon,
-  IonButtons,
-  IonProgressBar,
-  IonSearchbar,
-  IonList,
-  IonItem,
-  IonLabel,
-  IonSpinner,
-  IonCard,
-  IonCardContent,
-  ModalController,
-  ToastController
-} from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import { checkmarkCircle, alertCircle, pin, arrowForward } from 'ionicons/icons';
+import { IonContent, ModalController, ToastController } from '@ionic/angular/standalone';
 import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
+import { ScoreService } from '../../core/services/score.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { firstValueFrom, Subject, Subscription, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-signalement-modal',
@@ -37,21 +18,7 @@ import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
   imports: [
     CommonModule,
     FormsModule,
-    IonContent,
-    IonHeader,
-    IonTitle,
-    IonToolbar,
-    IonButton,
-    IonIcon,
-    IonButtons,
-    IonProgressBar,
-    IonSearchbar,
-    IonList,
-    IonItem,
-    IonLabel,
-    IonSpinner,
-    IonCard,
-    IonCardContent
+    IonContent
   ]
 })
 export class SignalementModalComponent implements OnInit, OnDestroy {
@@ -63,11 +30,12 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   selectedArret = signal<string>('');
   mode = signal<'vu' | 'dedans'>('vu');
   observation = '';
+  selectedTags = signal<string[]>([]);
 
   // GPS / Nearby Stops
   gpsCoords = signal<{ lat: number; lon: number } | null>(null);
   isGpsLoading = signal<boolean>(false);
-  nearbyStops = signal<string[]>([]);
+  nearbyStops = signal<{ name: string; dist?: number }[]>([]);
 
   // Search Stops
   searchQuery = '';
@@ -78,6 +46,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   isSubmitting = signal<boolean>(false);
   showSuccess = signal<boolean>(false);
   rateLimitCountdown = signal<number>(0);
+  scoreTotal = signal<number>(0);
 
   private countdownInterval: any = null;
   private searchSubject = new Subject<string>();
@@ -87,14 +56,14 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private apiService: ApiService,
     private sessionService: SessionService,
+    private scoreService: ScoreService,
     private toastCtrl: ToastController,
     @Inject(GEOLOCATION_TOKEN) private geolocation: GeolocationPlugin
-  ) {
-    addIcons({ checkmarkCircle, alertCircle, pin, arrowForward });
-  }
+  ) {}
 
   ngOnInit() {
     this.checkLocationAndFetchNearby();
+    this.scoreTotal.set(this.scoreService.points());
 
     // Debounced search for stops in Step 2
     this.searchSubscription = this.searchSubject.pipe(
@@ -105,16 +74,17 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
           return of({ stops: [], total: 0, query });
         }
         this.isSearchLoading.set(true);
-        return this.apiService.searchStops(query);
+        return this.apiService.searchStops(query).pipe(
+          catchError((err) => {
+            console.warn('Stop search failed in wizard:', err);
+            return of({ stops: [], total: 0, query });
+          })
+        );
       })
     ).subscribe({
       next: (res) => {
         this.isSearchLoading.set(false);
         this.searchResults.set(res.stops.map(s => s.nom));
-      },
-      error: (err) => {
-        this.isSearchLoading.set(false);
-        console.error('Stop search failed in wizard:', err);
       }
     });
   }
@@ -124,9 +94,6 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     this.clearCountdown();
   }
 
-  /**
-   * Request GPS permission and fetch coordinates using Geolocation
-   */
   private async checkLocationAndFetchNearby() {
     this.isGpsLoading.set(true);
     try {
@@ -146,7 +113,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
         // Fetch nearby stops
         const res = await firstValueFrom(this.apiService.getNearby(lat, lon));
         if (res && res.stops) {
-          this.nearbyStops.set(res.stops.map(s => s.nom));
+          this.nearbyStops.set(res.stops.map(s => ({ name: s.nom, dist: s.distance_m })));
         }
       } else {
         console.warn('GPS coordinates are outside Senegal boundaries, ignoring to avoid pollution.');
@@ -158,8 +125,14 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     }
   }
 
-  onSearchInput() {
-    this.searchSubject.next(this.searchQuery);
+  onSearchInput(event: Event) {
+    const val = (event.target as HTMLInputElement).value;
+    this.searchQuery = val;
+    this.searchSubject.next(val);
+  }
+
+  manualStopLabel(): string {
+    return this.searchQuery.trim();
   }
 
   selectLigne(ligne: string) {
@@ -168,7 +141,11 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   selectArret(arret: string) {
-    this.selectedArret.set(arret);
+    const normalized = arret.trim();
+    if (!normalized) return;
+
+    this.selectedArret.set(normalized);
+    this.searchQuery = '';
     this.step.set(3);
   }
 
@@ -179,18 +156,18 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     }
   }
 
-  getProgressValue(): number {
-    const current = this.step();
-    if (this.showSuccess()) return 1.0;
-    if (current === 1) return 0.33;
-    if (current === 2) return 0.66;
-    return 1.0;
+  toggleTag(tag: string) {
+    const current = this.selectedTags();
+    if (current.includes(tag)) {
+      this.selectedTags.set(current.filter(t => t !== tag));
+    } else {
+      this.selectedTags.set([...current, tag]);
+    }
   }
 
-  /**
-   * Submits the manual report to /api/report
-   */
   async submitReport() {
+    if (!this.selectedLigne() || !this.selectedArret()) return;
+
     this.isSubmitting.set(true);
 
     try {
@@ -201,11 +178,24 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       const coords = this.gpsCoords();
       const hasValidGps = coords !== null;
 
+      // Concatenate observation text and quality tags
+      let finalObservation: string | null = null;
+      const obsText = this.observation.trim();
+      const tags = this.selectedTags();
+      
+      if (obsText && tags.length > 0) {
+        finalObservation = `${obsText}. Tags: ${tags.join(', ')}`;
+      } else if (obsText) {
+        finalObservation = obsText;
+      } else if (tags.length > 0) {
+        finalObservation = `Tags: ${tags.join(', ')}`;
+      }
+
       const payload: any = {
         ligne: this.selectedLigne(),
         arret: this.selectedArret(),
         mode: this.mode(),
-        observation: this.observation.trim() || null,
+        observation: finalObservation,
         source: hasValidGps ? 'web_geoloc' : 'web_signal'
       };
 
@@ -217,12 +207,17 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       // 3. Submit report
       const res = await firstValueFrom(this.apiService.reportBus(payload));
 
-      // 4. Treat both recorded and already_recorded as success
+      // 4. Treat both recorded and already_recorded as success, but only
+      // increment the score on a genuinely new report — never on an
+      // idempotent duplicate (status === 'already_recorded').
       if (res && (res.status === 'already_recorded' || ('id' in res && res.status === 'recorded'))) {
+        if (res.status === 'recorded') {
+          this.scoreService.increment();
+        }
+        this.scoreTotal.set(this.scoreService.points());
+        this.step.set(4);
         this.showSuccess.set(true);
-        setTimeout(() => {
-          this.modalCtrl.dismiss({ success: true });
-        }, 1500);
+        // Do NOT automatically dismiss. Let the user click "Retour à la carte"
       } else {
         throw new Error('Invalid response from report server');
       }
@@ -286,6 +281,6 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   dismiss() {
-    this.modalCtrl.dismiss();
+    this.modalCtrl.dismiss({ success: this.showSuccess() });
   }
 }

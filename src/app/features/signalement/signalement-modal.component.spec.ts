@@ -2,14 +2,17 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { SignalementModalComponent } from './signalement-modal.component';
 import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
+import { ScoreService } from '../../core/services/score.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { ModalController, ToastController } from '@ionic/angular/standalone';
 import { of, throwError } from 'rxjs';
+import { signal } from '@angular/core';
 
 describe('SignalementModalComponent', () => {
   let apiServiceSpy: jasmine.SpyObj<ApiService>;
   let sessionServiceSpy: jasmine.SpyObj<SessionService>;
+  let scoreServiceSpy: jasmine.SpyObj<ScoreService>;
   let geolocationMock: jasmine.SpyObj<GeolocationPlugin>;
   let modalCtrlSpy: jasmine.SpyObj<ModalController>;
   let toastCtrlSpy: jasmine.SpyObj<ToastController>;
@@ -17,6 +20,10 @@ describe('SignalementModalComponent', () => {
   beforeEach(async () => {
     const apiSpy = jasmine.createSpyObj('ApiService', ['searchStops', 'getNearby', 'reportBus']);
     const sessionSpy = jasmine.createSpyObj('SessionService', ['ensureSession', 'getSessionId']);
+    const scoreSpy = jasmine.createSpyObj('ScoreService', ['increment']);
+    // Since points is a signal, we mock it as a function returning a value.
+    (scoreSpy as any).points = jasmine.createSpy('points').and.returnValue(5);
+    
     const geoSpy = jasmine.createSpyObj('GeolocationPlugin', ['getCurrentPosition']);
     const modalSpy = jasmine.createSpyObj('ModalController', ['dismiss']);
     const toastSpy = jasmine.createSpyObj('ToastController', ['create']);
@@ -26,6 +33,7 @@ describe('SignalementModalComponent', () => {
       providers: [
         { provide: ApiService, useValue: apiSpy },
         { provide: SessionService, useValue: sessionSpy },
+        { provide: ScoreService, useValue: scoreSpy },
         { provide: GEOLOCATION_TOKEN, useValue: geoSpy },
         { provide: ModalController, useValue: modalSpy },
         { provide: ToastController, useValue: toastSpy }
@@ -34,6 +42,7 @@ describe('SignalementModalComponent', () => {
 
     apiServiceSpy = TestBed.inject(ApiService) as jasmine.SpyObj<ApiService>;
     sessionServiceSpy = TestBed.inject(SessionService) as jasmine.SpyObj<SessionService>;
+    scoreServiceSpy = TestBed.inject(ScoreService) as jasmine.SpyObj<ScoreService>;
     geolocationMock = TestBed.inject(GEOLOCATION_TOKEN) as jasmine.SpyObj<GeolocationPlugin>;
     modalCtrlSpy = TestBed.inject(ModalController) as jasmine.SpyObj<ModalController>;
     toastCtrlSpy = TestBed.inject(ToastController) as jasmine.SpyObj<ToastController>;
@@ -93,7 +102,7 @@ describe('SignalementModalComponent', () => {
 
     expect(component.gpsCoords()).toEqual({ lat: 14.68, lon: -17.45 });
     expect(apiServiceSpy.getNearby).toHaveBeenCalledWith(14.68, -17.45);
-    expect(component.nearbyStops()).toContain('Fann');
+    expect(component.nearbyStops()).toContain({ name: 'Fann', dist: 100 });
   }));
 
   it('should ignore GPS coords if outside Senegal bounds', fakeAsync(() => {
@@ -146,9 +155,6 @@ describe('SignalementModalComponent', () => {
     });
 
     expect(component.showSuccess()).toBeTrue();
-
-    tick(1500); // Wait for auto-dismiss timer
-    expect(modalCtrlSpy.dismiss).toHaveBeenCalledWith({ success: true });
   }));
 
   it('should submit report with source web_signal and no coordinates when GPS is invalid/null', fakeAsync(() => {
@@ -177,7 +183,71 @@ describe('SignalementModalComponent', () => {
     });
   }));
 
-  it('should treat already_recorded status as a successful report', fakeAsync(() => {
+  it('should concatenate quality tags with observation text', fakeAsync(() => {
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(); // resolve GPS
+
+    component.selectedLigne.set('4');
+    component.selectedArret.set('Fann');
+    component.mode.set('vu');
+    component.observation = 'Passé sans s\'arrêter';
+    component.selectedTags.set(['bondé', 'en retard']);
+
+    component.submitReport();
+    tick();
+
+    expect(apiServiceSpy.reportBus).toHaveBeenCalledWith({
+      ligne: '4',
+      arret: 'Fann',
+      mode: 'vu',
+      observation: 'Passé sans s\'arrêter. Tags: bondé, en retard',
+      source: 'web_geoloc',
+      lat: 14.68,
+      lon: -17.45
+    });
+  }));
+
+  it('should keep stop search alive after a transient API error', fakeAsync(() => {
+    spyOn(console, 'warn');
+    apiServiceSpy.searchStops.and.returnValues(
+      throwError(() => new Error('network')),
+      of({
+        stops: [{ nom: 'Fann', lat: 14.68, lon: -17.45, distance_m: 120, lignes: [] }],
+        total: 1,
+        query: 'Fann'
+      })
+    );
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick();
+
+    component.onSearchInput({ target: { value: 'Fa' } } as unknown as Event);
+    tick(251);
+
+    expect(component.searchResults()).toEqual([]);
+
+    component.onSearchInput({ target: { value: 'Fann' } } as unknown as Event);
+    tick(251);
+
+    expect(apiServiceSpy.searchStops).toHaveBeenCalledTimes(2);
+    expect(component.searchResults()).toEqual(['Fann']);
+  }));
+
+  it('should allow a manually typed stop to advance to the send step', () => {
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+
+    component.selectArret('  Liberté 6  ');
+
+    expect(component.selectedArret()).toBe('Liberté 6');
+    expect(component.step()).toBe(3);
+  });
+
+  it('should treat already_recorded status as a successful report but NOT increment the score', fakeAsync(() => {
     apiServiceSpy.reportBus.and.returnValue(of({ status: 'already_recorded' }));
 
     const fixture = TestBed.createComponent(SignalementModalComponent);
@@ -191,6 +261,24 @@ describe('SignalementModalComponent', () => {
     tick();
 
     expect(component.showSuccess()).toBeTrue();
+    expect(scoreServiceSpy.increment).not.toHaveBeenCalled();
+  }));
+
+  it('should increment the score only when the report is a genuinely new recorded report', fakeAsync(() => {
+    apiServiceSpy.reportBus.and.returnValue(of({ id: 'report_999', status: 'recorded' }));
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick();
+
+    component.selectedLigne.set('4');
+    component.selectedArret.set('Fann');
+    component.submitReport();
+    tick();
+
+    expect(component.showSuccess()).toBeTrue();
+    expect(scoreServiceSpy.increment).toHaveBeenCalledTimes(1);
   }));
 
   it('should handle 429 rate limit error and read retry_after from JSON body', fakeAsync(() => {

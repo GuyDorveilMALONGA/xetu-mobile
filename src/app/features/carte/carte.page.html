@@ -1,106 +1,106 @@
-<ion-content [fullscreen]="true" class="carte-content">
-  <!-- Map container -->
-  <div id="map" class="map-container"></div>
-
-  <!-- Floating Action Buttons -->
-  <div class="floating-controls">
-    <ion-button (click)="getBuses()" class="control-btn" [disabled]="isLoading()">
-      @if (isLoading()) {
-        <ion-spinner name="crescent" size="small"></ion-spinner>
-      } @else {
-        <ion-icon name="refresh"></ion-icon>
+<ion-content [fullscreen]="true" [scrollY]="false" class="carte-content">
+  <div class="carte-screen">
+    <div id="map" class="map-container">
+      @if (welcomeMessage()) {
+        <div class="map-empty-overlay map-welcome-overlay">
+          <div class="map-empty-card map-welcome-card" role="dialog" aria-live="polite" aria-label="Position détectée">
+            <button class="map-empty-close" type="button" aria-label="Fermer" (click)="dismissWelcome()">&times;</button>
+            <div class="map-empty-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+            </div>
+            <div class="map-empty-title">Wow ! Position détectée</div>
+            <div class="map-empty-sub">{{ welcomeMessage() }}</div>
+            <button class="map-empty-btn" type="button" (click)="dismissWelcomeAndSignal()">Signaler un bus ici</button>
+          </div>
+        </div>
       }
-    </ion-button>
 
-    <ion-button (click)="centerOnUser()" class="control-btn" [disabled]="!userLocation()">
-      <ion-icon name="locate"></ion-icon>
-    </ion-button>
-  </div>
+      <button class="map-locate-btn" type="button" aria-label="Afficher ma position" (click)="handleLocate()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+          <circle cx="12" cy="12" r="8"></circle>
+        </svg>
+      </button>
+    </div>
 
-  <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="report-fab">
-    <ion-fab-button (click)="openSignalement()" aria-label="Signaler un bus">
-      <ion-icon name="megaphone"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
+    <div class="see-bus-wrap">
+      <button class="btn-see-bus" type="button" (click)="openSignalement()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Je vois un bus ici
+      </button>
+    </div>
 
-  <!-- Bottom Sheet Modal -->
-  <ion-modal
-    [isOpen]="true"
-    [backdropDismiss]="false"
-    [breakpoints]="[0.15, 0.5, 0.9]"
-    [initialBreakpoint]="0.15"
-    [backdropBreakpoint]="0.5"
-    class="carte-bottom-modal">
-    <ng-template>
-      <ion-content class="bottom-sheet-content ion-padding">
-        <div class="bottom-sheet-handle"></div>
+    <div class="home-bottom" [class.expanded]="isPanelExpanded()">
+      <button class="panel-grabber" type="button" [attr.aria-label]="isPanelExpanded() ? 'Réduire le panel' : 'Agrandir le panel'" [attr.aria-expanded]="isPanelExpanded()" (click)="togglePanel()"></button>
 
-        <div class="bottom-sheet-header">
-          <h2>Bus actifs</h2>
-          @if (activeBuses().length > 0) {
-            <span class="count-badge">{{ activeBuses().length }} bus</span>
-          }
+      <div class="home-cols-header">
+        <div class="home-col-tabs">
+          <button class="col-tab" [class.active]="activeTab() === 'buses'" (click)="setTab('buses')">Bus actifs</button>
+          <button class="col-tab" [class.active]="activeTab() === 'top'" (click)="setTab('top')">Top signaleurs</button>
         </div>
 
-        <!-- LOADING STATE -->
-        @if (isLoading()) {
-          <div class="sheet-state-container">
-            <ion-spinner name="crescent" color="primary"></ion-spinner>
-            <p>Chargement des positions des bus...</p>
+        @if (activeTab() === 'buses' && filterLines().length > 0) {
+          <div class="home-filter-bar">
+            <button class="filter-chip" [class.filter-chip--active]="activeFilter() === null" (click)="setFilter(null)">Tous</button>
+            @for (line of filterLines(); track line) {
+              <button class="filter-chip" [class.filter-chip--active]="activeFilter() === line" (click)="setFilter(line)">{{ line }}</button>
+            }
           </div>
         }
+      </div>
 
-        <!-- ERROR STATE -->
-        @else if (error()) {
-          <div class="sheet-state-container error-state">
-            <ion-icon name="alert-circle" color="danger"></ion-icon>
-            <p>{{ error() }}</p>
-            <ion-button size="small" fill="outline" (click)="getBuses()">
-              Réessayer
-            </ion-button>
-          </div>
-        }
-
-        <!-- LIST STATE -->
-        @else {
-          @if (activeBuses().length > 0) {
-            <div class="bus-list">
-              @for (bus of activeBuses(); track (bus.ligne + '-' + bus.lat + '-' + bus.lon)) {
-                <div class="bus-card" (click)="selectBus(bus)">
-                  <div class="bus-card-main">
-                    <div class="line-badge">
-                      {{ bus.ligne }}
-                    </div>
-                    <div class="bus-info">
-                      <div class="bus-direction">
-                        Direction {{ bus.direction || 'Inconnue' }}
-                      </div>
-                      <div class="bus-subtext">
-                        <span>Dernier arrêt : {{ bus.arret_signale || 'Inconnu' }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="bus-card-meta">
-                    <div class="freshness" [ngClass]="getFreshnessClass(bus.minutes_depuis_signalement)">
-                      {{ getFreshnessText(bus.minutes_depuis_signalement) }}
-                    </div>
-                    <div class="source-label">
-                      {{ getSourceLabel(bus.tracking_mode) }}
-                    </div>
-                  </div>
-                </div>
-              }
+      <div class="home-cols">
+        <div class="home-col" [class.active]="activeTab() === 'buses'">
+          @if (error()) {
+            <div class="empty-state empty-state--signal">
+              <div class="empty-text">{{ error() }}</div>
+              <button class="empty-action" type="button" (click)="getBuses()">Réessayer</button>
+            </div>
+          } @else if (activeBuses().length === 0) {
+            <div class="empty-state empty-state--signal">
+              <div class="empty-text">Aucun bus actif. Le dernier signal a peut-être expiré.</div>
+            </div>
+          } @else if (filteredBuses().length === 0) {
+            <div class="empty-state empty-state--signal">
+              <span class="empty-icon xetu-icon xetu-icon--seen" aria-hidden="true"></span>
+              <div class="empty-text">Aucun bus actif sur cette ligne. Invite quelqu'un à signaler.</div>
+              <button class="empty-action" type="button" (click)="openSignalement()">Signaler un bus</button>
             </div>
           } @else {
-            <div class="sheet-state-container empty-state">
-              <ion-icon name="bus" color="medium"></ion-icon>
-              <p>Aucun bus actif en circulation pour le moment.</p>
-              <p class="subtitle">Les positions s'affichent au fil des signalements de la communauté.</p>
-            </div>
+            @for (bus of filteredBuses(); track bus.ligne) {
+              <div class="bus-card bus-card--compact" (click)="selectBus(bus)">
+                <div class="bus-card-header">
+                  <div class="bus-badge" [style.background]="freshnessColor(bus.minutes_depuis_signalement)">{{ bus.ligne }}</div>
+                  <div class="bus-name">Ligne {{ bus.ligne }}</div>
+                  <div class="bus-age" [ngClass]="getFreshnessClass(bus.minutes_depuis_signalement)">{{ getFreshnessText(bus.minutes_depuis_signalement) }}</div>
+                </div>
+                <div class="bus-position"><span class="xetu-icon xetu-icon--pin" aria-hidden="true"></span>{{ bus.arret_signale || '—' }}</div>
+              </div>
+            }
           }
-        }
-      </ion-content>
-    </ng-template>
-  </ion-modal>
+
+        </div>
+
+        <div class="home-col" [class.active]="activeTab() === 'top'">
+          @if (leaderboard().length === 0) {
+            <div class="empty-state empty-state--signal">
+              <div class="empty-text">Aucun contributeur actif pour le moment.</div>
+            </div>
+          } @else {
+            @for (user of leaderboard(); track user.rang) {
+              <div class="leaderboard-card">
+                <div class="lb-avatar" [style.background]="hashColor(user.pseudo)">{{ initials(user.pseudo) }}</div>
+                <div class="lb-info">
+                  <div class="lb-name">{{ user.pseudo }}</div>
+                  <div class="lb-badge">{{ badgeLabel(user.badge) }}</div>
+                </div>
+                <div class="lb-score">{{ user.nb_signalements }}</div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
 </ion-content>

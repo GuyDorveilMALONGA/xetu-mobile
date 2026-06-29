@@ -10,7 +10,7 @@ export class StoreService {
   activeBuses = signal<Bus[]>([]);
   subscriptions = signal<string[]>([]);
   userScore = signal<number>(0);
-  leaderboard = signal<any[]>([]);
+  leaderboard = signal<LeaderboardResponse['leaderboard']>([]);
   stats = signal<{ activeBuses: number; reportsToday: string; contributors: string }>({
     activeBuses: 0,
     reportsToday: '—',
@@ -19,5 +19,4 @@ export class StoreService {
   lastBotMessage = signal<string>('');
   chatTyping = signal<boolean>(false);
   chatStatus = signal<string>('');
-  chatSuggestions = signal<string[]>([]);
 }

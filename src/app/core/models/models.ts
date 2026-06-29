@@ -212,6 +212,28 @@ export interface StopsSearchResponse {
   via_secteur?: string;
 }
 
+// Local bundled assets (src/assets/data) — Itinéraire local index enrichment (Étape 3b)
+export interface XetuMvpData {
+  lignes: Record<string, {
+    numero?: string;
+    nom?: string;
+    terminus_a?: string;
+    terminus_b?: string;
+    arrets?: Array<{ nom: string; lat: number; lon: number; aliases_terrain?: string[] }>;
+    arrets_retour?: Array<{ nom: string; lat: number; lon: number; aliases_terrain?: string[] }>;
+  }>;
+}
+
+export interface SecteursDakarData {
+  secteurs_dakar: Array<{
+    nom_officiel: string;
+    commune: string;
+    coordonnees?: { latitude: number; longitude: number };
+    parametres_transport?: { zone_hub_majeur?: boolean };
+    points_repere?: string[];
+  }>;
+}
+
 export interface NearbyResponse {
   status: 'success' | 'empty';
   message: string;

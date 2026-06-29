@@ -1,41 +1,26 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>S'abonner à une ligne</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="dismiss()">Fermer</ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-  <ion-toolbar>
-    <ion-searchbar
-      placeholder="Rechercher une ligne (ex: 219, Parcelles)..."
+<div class="subscribe-modal-inner">
+  <div class="subscribe-modal-title">S'abonner à une ligne</div>
+  <div class="subscribe-search-wrap">
+    <input
+      type="text"
+      class="subscribe-search"
+      placeholder="Chercher une ligne…"
       [(ngModel)]="searchQuery"
-      (ionInput)="filterLines()"
-      [debounce]="200">
-    </ion-searchbar>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content class="ion-padding">
-  <ion-list lines="full" class="lines-list">
+      (ngModelChange)="filterLines()" />
+  </div>
+  <div class="subscribe-lines">
     @for (line of filteredLines; track line.number) {
-      <ion-item class="line-item">
-        <div class="line-badge" slot="start">{{ line.number }}</div>
-        <ion-label class="line-label">
-          <h2>Ligne {{ line.number }}</h2>
-          <p>{{ line.description }}</p>
-        </ion-label>
-        <ion-button
-          [fill]="line.isSubscribed ? 'solid' : 'outline'"
-          [color]="line.isSubscribed ? 'primary' : 'primary'"
-          (click)="toggleSubscription(line)"
-          class="action-button">
-          {{ line.isSubscribed ? 'Abonné' : 'S\'abonner' }}
-        </ion-button>
-      </ion-item>
+      <button
+        type="button"
+        class="subscribe-chip"
+        [class.subscribed]="line.isSubscribed"
+        [attr.aria-label]="(line.isSubscribed ? 'Se désabonner de la ligne ' : 'S\'abonner à la ligne ') + line.number"
+        (click)="toggleSubscription(line)">
+        {{ line.number }}
+      </button>
     } @empty {
-      <div class="empty-results">
-        <p>Aucune ligne ne correspond à votre recherche.</p>
-      </div>
+      <div class="subscribe-empty">Aucune ligne ne correspond à votre recherche.</div>
     }
-  </ion-list>
-</ion-content>
+  </div>
+  <button type="button" class="subscribe-cancel-btn" (click)="dismiss()">Annuler</button>
+</div>

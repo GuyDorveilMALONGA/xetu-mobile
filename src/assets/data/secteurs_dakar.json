@@ -1,0 +1,292 @@
+{
+  "secteurs_dakar": [
+    {
+      "id": "SEC-PLAT-SUD",
+      "nom_officiel": "Dakar Plateau - Sud",
+      "commune": "Dakar Plateau",
+      "coordonnees": { "latitude": 14.6550, "longitude": -17.4330 },
+      "parametres_transport": { "rayon_action_m": 300, "zone_hub_majeur": false },
+      "points_repere": ["Cap Manuel", "Palais Présidentiel", "Hôpital Principal", "Assemblée Nationale"]
+    },
+    {
+      "id": "SEC-PLAT-NORD",
+      "nom_officiel": "Dakar Plateau - Centre/Nord",
+      "commune": "Dakar Plateau",
+      "coordonnees": { "latitude": 14.6680, "longitude": -17.4380 },
+      "parametres_transport": { "rayon_action_m": 300, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER de Dakar", "Marché Sandaga", "Place de l'Indépendance", "Port Autonome"]
+    },
+    {
+      "id": "SEC-MED",
+      "nom_officiel": "Médina",
+      "commune": "Médina",
+      "coordonnees": { "latitude": 14.6821, "longitude": -17.4509 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": true },
+      "points_repere": ["Marché Tilène", "Rond-point RTS", "Hôpital Abass Ndao", "Stade Iba Mar Diop"]
+    },
+    {
+      "id": "SEC-COLO",
+      "nom_officiel": "Colobane",
+      "commune": "Gueule Tapée-Fass-Colobane",
+      "coordonnees": { "latitude": 14.6950, "longitude": -17.4470 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": true },
+      "points_repere": ["Gare routière de Colobane", "Gare TER Colobane", "Marché Colobane", "Place de la Nation"]
+    },
+    {
+      "id": "SEC-FASS",
+      "nom_officiel": "Fass / Gueule Tapée",
+      "commune": "Gueule Tapée-Fass-Colobane",
+      "coordonnees": { "latitude": 14.6861, "longitude": -17.4566 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": false },
+      "points_repere": ["Canal 4", "UCAD (Porte Fass)", "Marché Gueule Tapée"]
+    },
+    {
+      "id": "SEC-FANN",
+      "nom_officiel": "Fann / Point E / Amitié",
+      "commune": "Fann-Point E-Amitié",
+      "coordonnees": { "latitude": 14.6936, "longitude": -17.4644 },
+      "parametres_transport": { "rayon_action_m": 500, "zone_hub_majeur": true },
+      "points_repere": ["Université Cheikh Anta Diop (UCAD)", "Hôpital Fann", "Piscine Olympique", "Couloir de la mort"]
+    },
+    {
+      "id": "SEC-NTALLY",
+      "nom_officiel": "Niary Tally / Grand Dakar",
+      "commune": "Biscuiterie",
+      "coordonnees": { "latitude": 14.7062, "longitude": -17.4475 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": true },
+      "points_repere": ["Jet d'Eau", "Allées Niary Tally", "Terminus Grand Dakar", "Cinéma El Mansour"]
+    },
+    {
+      "id": "SEC-HLM",
+      "nom_officiel": "Les HLM",
+      "commune": "HLM",
+      "coordonnees": { "latitude": 14.7001, "longitude": -17.4455 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": true },
+      "points_repere": ["Marché HLM", "Station BRT HLM", "Gare TER Hann"]
+    },
+    {
+      "id": "SEC-CAST",
+      "nom_officiel": "Castors / Dieuppeul",
+      "commune": "Dieuppeul-Derklé",
+      "coordonnees": { "latitude": 14.7251, "longitude": -17.4484 },
+      "parametres_transport": { "rayon_action_m": 400, "zone_hub_majeur": true },
+      "points_repere": ["Marché Castors", "Rond-point Dieuppeul", "Gendarmerie Front de Terre"]
+    },
+    {
+      "id": "SEC-LIB-SUD",
+      "nom_officiel": "Sicap Liberté 1, 2, 3",
+      "commune": "Sicap-Liberté",
+      "coordonnees": { "latitude": 14.7150, "longitude": -17.4570 },
+      "parametres_transport": { "rayon_action_m": 500, "zone_hub_majeur": false },
+      "points_repere": ["Boulangerie Jaune", "Camp Jérémy", "Stade Demba Diop"]
+    },
+    {
+      "id": "SEC-LIB-NORD",
+      "nom_officiel": "Sicap Liberté 4, 5, 6",
+      "commune": "Sicap-Liberté",
+      "coordonnees": { "latitude": 14.7250, "longitude": -17.4580 },
+      "parametres_transport": { "rayon_action_m": 500, "zone_hub_majeur": true },
+      "points_repere": ["Terminus Dem Dikk Liberté 5", "Rond-point Liberté 6", "Station BRT Liberté 6", "Camp Pénal"]
+    },
+    {
+      "id": "SEC-VDN",
+      "nom_officiel": "Sacré-Cœur / Mermoz",
+      "commune": "Mermoz-Sacré-Cœur",
+      "coordonnees": { "latitude": 14.7155, "longitude": -17.4660 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Siège Sonatel VDN", "Boulangerie Mermoz", "Station BRT Sacré-Cœur", "Hypermarché Exclusive"]
+    },
+    {
+      "id": "SEC-OUAK",
+      "nom_officiel": "Ouakam / Mamelles",
+      "commune": "Ouakam",
+      "coordonnees": { "latitude": 14.7237, "longitude": -17.4942 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Monument de la Renaissance", "Terminus Ouakam", "Hôpital Militaire", "Phare des Mamelles"]
+    },
+    {
+      "id": "SEC-ALMAD",
+      "nom_officiel": "Almadies / Ngor",
+      "commune": "Ngor",
+      "coordonnees": { "latitude": 14.7434, "longitude": -17.5116 },
+      "parametres_transport": { "rayon_action_m": 700, "zone_hub_majeur": true },
+      "points_repere": ["Rond-point Ngor", "Route des Almadies", "King Fahd Palace", "Embarcadère Île de Ngor"]
+    },
+    {
+      "id": "SEC-YOFF",
+      "nom_officiel": "Yoff",
+      "commune": "Yoff",
+      "coordonnees": { "latitude": 14.7552, "longitude": -17.4865 },
+      "parametres_transport": { "rayon_action_m": 700, "zone_hub_majeur": true },
+      "points_repere": ["Aéroport LSS", "BCEAO Yoff", "Le Virage", "Mausolée Layène"]
+    },
+    {
+      "id": "SEC-FOIRE",
+      "nom_officiel": "Nord, Sud et Ouest Foire",
+      "commune": "Patte d'Oie",
+      "coordonnees": { "latitude": 14.7481, "longitude": -17.4662 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["CICES", "Pont de l'Émergence", "Brioche Dorée Nord Foire"]
+    },
+    {
+      "id": "SEC-GYOFF",
+      "nom_officiel": "Grand Yoff",
+      "commune": "Grand Yoff",
+      "coordonnees": { "latitude": 14.7328, "longitude": -17.4561 },
+      "parametres_transport": { "rayon_action_m": 500, "zone_hub_majeur": true },
+      "points_repere": ["Marché Grand Yoff", "Église de Grand Yoff", "Station BRT Grand Yoff", "Scat Urbam"]
+    },
+    {
+      "id": "SEC-PATTE",
+      "nom_officiel": "Patte d'Oie / Builders",
+      "commune": "Patte d'Oie",
+      "coordonnees": { "latitude": 14.7415, "longitude": -17.4452 },
+      "parametres_transport": { "rayon_action_m": 500, "zone_hub_majeur": true },
+      "points_repere": ["Rond-point Patte d'Oie", "Gare Routière Baux Maraîchers", "Cité Builders"]
+    },
+    {
+      "id": "SEC-PA-1",
+      "nom_officiel": "Parcelles Assainies (Unités 1 à 10)",
+      "commune": "Parcelles Assainies",
+      "coordonnees": { "latitude": 14.7550, "longitude": -17.4450 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Stade Amadou Barry", "Marché Jeudi", "Station BRT Parcelles"]
+    },
+    {
+      "id": "SEC-PA-2",
+      "nom_officiel": "Parcelles Assainies (Unités 11 à 26)",
+      "commune": "Parcelles Assainies",
+      "coordonnees": { "latitude": 14.7685, "longitude": -17.4421 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Terminus Dem Dikk Unité 22", "Marché Dior", "Hôpital Mame Abdou Aziz Sy", "Croisement 22"]
+    },
+    {
+      "id": "SEC-CAMB",
+      "nom_officiel": "Cambérène",
+      "commune": "Cambérène",
+      "coordonnees": { "latitude": 14.7672, "longitude": -17.4191 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": false },
+      "points_repere": ["Mausolée Seydina Issa Rohou Lahi", "Plage de Cambérène"]
+    },
+    {
+      "id": "SEC-MARIS",
+      "nom_officiel": "Hann Maristes",
+      "commune": "Hann Bel-Air",
+      "coordonnees": { "latitude": 14.7354, "longitude": -17.4248 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": false },
+      "points_repere": ["Cours Sainte-Marie de Hann", "Parc de Hann", "Croisement Maristes"]
+    },
+    {
+      "id": "SEC-YARAKH",
+      "nom_officiel": "Hann Bel-Air / Yarakh",
+      "commune": "Hann Bel-Air",
+      "coordonnees": { "latitude": 14.7161, "longitude": -17.4300 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Port de Pêche", "Zone Industrielle Bel-Air", "Gare Routière des Baux Maraîchers (Accès Yarakh)"]
+    },
+    {
+      "id": "SEC-DALI",
+      "nom_officiel": "Dalifort / Forêt",
+      "commune": "Dalifort",
+      "coordonnees": { "latitude": 14.7330, "longitude": -17.4120 },
+      "parametres_transport": { "rayon_action_m": 600, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Dalifort", "Senelec Dalifort", "Route de Rufisque"]
+    },
+    {
+      "id": "SEC-PIK-O",
+      "nom_officiel": "Pikine Ouest / Icotaf",
+      "commune": "Pikine Ouest",
+      "coordonnees": { "latitude": 14.7575, "longitude": -17.3950 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Bountou Pikine", "Gare TER Pikine", "Technopole", "Camp Thiaroye"]
+    },
+    {
+      "id": "SEC-PIK-E",
+      "nom_officiel": "Pikine Est / Guinaw Rails",
+      "commune": "Pikine Est",
+      "coordonnees": { "latitude": 14.7620, "longitude": -17.3800 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": false },
+      "points_repere": ["Marché Syndicat", "Guinaw Rails", "Serigne Mansour Sy"]
+    },
+    {
+      "id": "SEC-GUED-S",
+      "nom_officiel": "Guédiawaye - Golf Sud",
+      "commune": "Golf Sud",
+      "coordonnees": { "latitude": 14.7780, "longitude": -17.4150 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Terminus BRT Guédiawaye", "Hamo 1 à 6", "Marché Jeudi (côté Golf)"]
+    },
+    {
+      "id": "SEC-GUED-N",
+      "nom_officiel": "Guédiawaye - Sam Notaire / Wakhinane",
+      "commune": "Sam Notaire",
+      "coordonnees": { "latitude": 14.7850, "longitude": -17.3950 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Lycée Limamoulaye", "Hôpital Dalal Jamm", "Foyer des Jeunes"]
+    },
+    {
+      "id": "SEC-THIAR",
+      "nom_officiel": "Thiaroye",
+      "commune": "Thiaroye Gare",
+      "coordonnees": { "latitude": 14.7586, "longitude": -17.3688 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Thiaroye", "Marché Thiaroye", "Croisement Thiaroye"]
+    },
+    {
+      "id": "SEC-YEUMB",
+      "nom_officiel": "Yeumbeul",
+      "commune": "Yeumbeul",
+      "coordonnees": { "latitude": 14.7725, "longitude": -17.3621 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Yeumbeul", "Route de Boune", "Marché Yeumbeul"]
+    },
+    {
+      "id": "SEC-KMAS",
+      "nom_officiel": "Keur Massar",
+      "commune": "Keur Massar",
+      "coordonnees": { "latitude": 14.7775, "longitude": -17.3061 },
+      "parametres_transport": { "rayon_action_m": 1200, "zone_hub_majeur": true },
+      "points_repere": ["Rond-point Keur Massar", "Terminus Dem Dikk Keur Massar", "Gare TER Keur Massar", "Hôpital Keur Massar"]
+    },
+    {
+      "id": "SEC-MBAO",
+      "nom_officiel": "Mbao / Fass Mbao",
+      "commune": "Mbao",
+      "coordonnees": { "latitude": 14.7351, "longitude": -17.3312 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER PNR (Petit Mbao)", "Forêt classée de Mbao", "ZAC Mbao"]
+    },
+    {
+      "id": "SEC-RUF-C",
+      "nom_officiel": "Rufisque Centre",
+      "commune": "Rufisque Centre",
+      "coordonnees": { "latitude": 14.7166, "longitude": -17.2761 },
+      "parametres_transport": { "rayon_action_m": 800, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Rufisque", "Marché Central Rufisque", "Bata", "Jardin Public"]
+    },
+    {
+      "id": "SEC-RUF-E",
+      "nom_officiel": "Rufisque Est / Ouest",
+      "commune": "Rufisque",
+      "coordonnees": { "latitude": 14.7200, "longitude": -17.2600 },
+      "parametres_transport": { "rayon_action_m": 1000, "zone_hub_majeur": false },
+      "points_repere": ["Gare Routière Rufisque", "Sococim", "Sortie Péage Rufisque"]
+    },
+    {
+      "id": "SEC-BARG",
+      "nom_officiel": "Bargny / Sendou",
+      "commune": "Bargny",
+      "coordonnees": { "latitude": 14.6970, "longitude": -17.2340 },
+      "parametres_transport": { "rayon_action_m": 1000, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Bargny", "Cimenterie", "Croisement Bargny"]
+    },
+    {
+      "id": "SEC-DIAM",
+      "nom_officiel": "Diamniadio",
+      "commune": "Diamniadio",
+      "coordonnees": { "latitude": 14.7215, "longitude": -17.1891 },
+      "parametres_transport": { "rayon_action_m": 2000, "zone_hub_majeur": true },
+      "points_repere": ["Gare TER Diamniadio", "Sphères Ministérielles", "Dakar Arena", "CICAD", "Université Amadou Mahtar Mbow"]
+    }
+  ]
+}

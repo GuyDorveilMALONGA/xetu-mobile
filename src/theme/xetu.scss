@@ -1,6 +1,108 @@
-/* src/theme/xetu.scss */
+﻿/* src/theme/xetu.scss */
 
-/* ── Live status dot animations ── */
+/* â”€â”€ Xetu CSS icons (portÃ©es du dashboard, css/components.css) â”€â”€
+   Remplacent les emojis par des formes CSS pures, sans dÃ©pendance SVG/font.
+   Usage : <span class="xetu-icon xetu-icon--seen"></span> */
+.xetu-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  flex: 0 0 14px;
+  color: currentColor;
+  position: relative;
+}
+.xetu-icon--pin {
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  margin-left: 2px;
+}
+.xetu-icon--pin::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  left: 2px;
+  top: 2px;
+}
+.xetu-icon--seen {
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+.xetu-icon--seen::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.xetu-icon--rider {
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+.xetu-icon--rider::before,
+.xetu-icon--rider::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.xetu-icon--rider::before { left: 1px; }
+.xetu-icon--rider::after  { right: 1px; }
+.xetu-icon--signal-live,
+.xetu-icon--signal-estimated,
+.xetu-icon--signal-stale {
+  border-radius: 50%;
+  background: currentColor;
+}
+.xetu-icon--signal-live {
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent);
+}
+.xetu-icon--signal-estimated {
+  background: transparent;
+  border: 2px solid currentColor;
+}
+.xetu-icon--signal-stale {
+  background: transparent;
+  border: 2px solid currentColor;
+}
+.xetu-icon--signal-stale::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 2px;
+  background: currentColor;
+  left: 0;
+  top: 6px;
+  transform: rotate(-35deg);
+}
+
+/* â”€â”€ Pulse halo (marker bus carte, portÃ©e de overlay-styles.css) â”€â”€ */
+@keyframes xetuPulse {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.xetu-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  animation: xetuPulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+/* â”€â”€ Live status dot animations â”€â”€ */
 .ws-dot {
   width: 8px;
   height: 8px;
@@ -25,7 +127,7 @@
   50% { opacity: 0.4; }
 }
 
-/* ── Custom Buttons ── */
+/* â”€â”€ Custom Buttons â”€â”€ */
 .btn-see-bus {
   width: 100%;
   display: flex;
@@ -46,7 +148,7 @@
 .btn-see-bus:hover { opacity: 0.9; }
 .btn-see-bus:active { transform: scale(0.98); opacity: 0.85; }
 
-/* ── Filter chips ── */
+/* â”€â”€ Filter chips â”€â”€ */
 .home-filter-bar {
   display: flex;
   gap: 6px;
@@ -85,7 +187,7 @@
   color: var(--orange);
 }
 
-/* ── Custom Animations ── */
+/* â”€â”€ Custom Animations â”€â”€ */
 .slide-up-in {
   animation: slideUp 0.25s ease-out forwards;
 }
@@ -132,7 +234,254 @@
   40% { transform: scale(1.0); }
 }
 
-/* ── Geolocation status banners ── */
+/* â”€â”€ Empty states (rÃ©utilisÃ© Carte/ItinÃ©raire/Mes lignes) â”€â”€ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 20px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 28px; }
+.empty-text { font-size: 12px; text-align: center; }
+.empty-state--signal .empty-icon { width: 28px; height: 28px; color: var(--orange); }
+.empty-action {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.empty-action:active { transform: scale(0.97); }
+
+/* Wizard progress and success primitives */
+.sg-progress {
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 16px 10px;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.sg-progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.sg-progress-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  font-family: var(--font-body);
+  transition: all var(--t-fast);
+  position: relative;
+  z-index: 1;
+}
+.sg-progress-step.active .sg-progress-circle {
+  border-color: var(--orange);
+  background: var(--orange-dim);
+  color: var(--orange);
+}
+.sg-progress-step.done .sg-progress-circle {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #fff;
+}
+.sg-progress-step.done .sg-progress-circle::after {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.sg-progress-step.done .sg-progress-num { display: none; }
+.sg-progress-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  font-family: var(--font-body);
+  transition: color var(--t-fast);
+}
+.sg-progress-step.active .sg-progress-label { color: var(--orange); }
+.sg-progress-step.done .sg-progress-label { color: var(--text-dim); }
+.sg-progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin-top: 11px;
+  transition: background var(--t-fast);
+}
+.sg-progress-line.done { background: var(--orange); }
+.sg-success-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(0, 214, 127, 0.12);
+  border: 2px solid var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  animation: successPop 0.5s ease both;
+}
+.sg-success-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.sg-success-sub {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.sg-points-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+}
+.sg-points-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--green);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+.sg-points-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.sg-points-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+@keyframes successPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Route stepper card (Itineraire, reusable for guided routes) */
+.itin-result-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.2s ease both;
+}
+.itin-result-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 0;
+}
+.itin-step-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.itin-step-icon--origin {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.itin-step-icon--bus {
+  background: var(--orange-dim);
+  border: 1px solid var(--orange-border);
+  color: var(--orange);
+}
+.itin-step-icon--dest {
+  background: var(--orange);
+  color: #fff;
+}
+.itin-step-info { flex: 1; min-width: 0; }
+.itin-step-main {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+.itin-step-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.itin-result-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--orange-border);
+  margin-left: 14px;
+}
+.itin-result-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.itin-result-duration-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.itin-result-duration-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.itin-duration-line {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(to right, var(--green), var(--orange));
+}
+.itin-result-duration-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--orange);
+  font-family: var(--font-mono);
+}
+.itin-reset-link {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 8px;
+  font-family: var(--font-body);
+}
+
+/* â”€â”€ Geolocation status banners â”€â”€ */
 .btn-geoloc {
   display: inline-flex;
   align-items: center;
@@ -175,3 +524,4 @@
   color: #FF4757;
   border: 1px solid rgba(255, 71, 87, 0.25);
 }
+
