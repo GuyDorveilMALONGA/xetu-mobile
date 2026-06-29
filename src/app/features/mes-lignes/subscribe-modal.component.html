@@ -1,0 +1,41 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>S'abonner à une ligne</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Fermer</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar
+      placeholder="Rechercher une ligne (ex: 219, Parcelles)..."
+      [(ngModel)]="searchQuery"
+      (ionInput)="filterLines()"
+      [debounce]="200">
+    </ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-list lines="full" class="lines-list">
+    @for (line of filteredLines; track line.number) {
+      <ion-item class="line-item">
+        <div class="line-badge" slot="start">{{ line.number }}</div>
+        <ion-label class="line-label">
+          <h2>Ligne {{ line.number }}</h2>
+          <p>{{ line.description }}</p>
+        </ion-label>
+        <ion-button
+          [fill]="line.isSubscribed ? 'solid' : 'outline'"
+          [color]="line.isSubscribed ? 'primary' : 'primary'"
+          (click)="toggleSubscription(line)"
+          class="action-button">
+          {{ line.isSubscribed ? 'Abonné' : 'S\'abonner' }}
+        </ion-button>
+      </ion-item>
+    } @empty {
+      <div class="empty-results">
+        <p>Aucune ligne ne correspond à votre recherche.</p>
+      </div>
+    }
+  </ion-list>
+</ion-content>

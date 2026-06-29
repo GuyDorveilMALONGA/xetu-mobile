@@ -1,0 +1,98 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Chat IA</ion-title>
+    <ion-buttons slot="end">
+      <div class="ws-status-container">
+        <span class="ws-status-dot" [class]="wsStatus()"></span>
+        <span class="ws-status-text">
+          @if (wsStatus() === 'open') { Connecté }
+          @else if (wsStatus() === 'connecting') { Connexion… }
+          @else { Hors ligne }
+        </span>
+      </div>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="chat-content">
+  <!-- Welcome / Empty State -->
+  @if (messages().length === 0) {
+    <div class="welcome-container">
+      <div class="welcome-card">
+        <div class="welcome-icon">🤖</div>
+        <h2>Salam ! Je suis Xëtu 🚌</h2>
+        <p>Demande-moi où est un bus ou comment aller à un endroit de Dakar. Je t'aide à t'orienter en temps réel !</p>
+      </div>
+    </div>
+  }
+
+  <!-- Messages List -->
+  <div class="messages-list">
+    @for (msg of messages(); track msg.time + msg.text) {
+      <div class="message-row" [class.user-row]="msg.role === 'user'" [class.bot-row]="msg.role === 'bot'">
+        <div class="message-bubble" [class.user-bubble]="msg.role === 'user'" [class.bot-bubble]="msg.role === 'bot'">
+          <span [innerHTML]="msg.text | formatMessage"></span>
+          <span class="message-time">{{ msg.time }}</span>
+        </div>
+      </div>
+    }
+
+    <!-- Typing Indicator -->
+    @if (chatTyping()) {
+      <div class="message-row bot-row">
+        <div class="message-bubble bot-bubble typing-bubble">
+          <div class="chat-typing">
+            <span class="chat-typing-dot"></span>
+            <span class="chat-typing-dot"></span>
+            <span class="chat-typing-dot"></span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Status Pill -->
+    @if (chatStatus()) {
+      <div class="status-pill-container">
+        <span class="status-pill">{{ chatStatus() }}</span>
+      </div>
+    }
+  </div>
+
+  <!-- Contextual Suggestions -->
+  @if (chatSuggestions().length > 0) {
+    <div class="suggestions-outer-container">
+      <div class="suggestions-container">
+        @for (suggestion of chatSuggestions(); track suggestion) {
+          <ion-chip class="suggestion-chip" [disabled]="wsStatus() !== 'open' && composerText.trim().length > 0" (click)="onSuggestionClick(suggestion)">
+            <ion-label>{{ suggestion }}</ion-label>
+          </ion-chip>
+        }
+      </div>
+    </div>
+  }
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar class="composer-toolbar">
+    <div class="composer-container">
+      <ion-textarea
+        #composerInput
+        class="composer-textarea"
+        [(ngModel)]="composerText"
+        placeholder="Demande où est un bus..."
+        [autoGrow]="true"
+        rows="1"
+        maxlength="500"
+        (keydown.enter)="onEnterPress($event)">
+      </ion-textarea>
+      
+      <ion-button
+        fill="clear"
+        class="send-button"
+        [disabled]="!composerText.trim() || wsStatus() !== 'open'"
+        (click)="sendCurrentMessage()">
+        <ion-icon name="send" slot="icon-only"></ion-icon>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

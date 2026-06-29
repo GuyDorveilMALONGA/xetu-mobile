@@ -1,0 +1,135 @@
+.offline-badge {
+  background-color: var(--ion-color-warning, #ffc409);
+  color: #000;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 4px);
+  margin-right: 16px;
+  text-transform: uppercase;
+}
+
+.mes-lignes-content {
+  --background: var(--ion-background-color);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ion-color-medium);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subscriptions-list {
+  padding-bottom: 80px;
+}
+
+.subscription-card {
+  display: flex;
+  align-items: center;
+  background-color: var(--surface2, #1a2235);
+  border: 1px solid var(--border-dim, #212d42);
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:active {
+    transform: scale(0.99);
+    box-shadow: none;
+  }
+
+  .card-badge {
+    background-color: var(--ion-color-primary);
+    color: var(--ion-color-primary-contrast);
+    font-weight: bold;
+    font-size: 18px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .card-info {
+    flex: 1;
+    padding: 12px;
+    overflow: hidden;
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ion-text-color);
+      margin: 0 0 4px 0;
+    }
+
+    p {
+      font-size: 13px;
+      color: var(--ion-color-medium);
+      margin: 0;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+  }
+
+  .remove-button {
+    --padding-start: 12px;
+    --padding-end: 12px;
+    margin: 0;
+    height: 60px;
+  }
+}
+
+.empty-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80%;
+  padding: 24px;
+}
+
+.empty-card {
+  background: var(--surface2, #1a2235);
+  border: 1px solid var(--border-dim, #212d42);
+  border-radius: var(--radius-lg, 12px);
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 320px;
+  box-shadow: var(--shadow-sm);
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--ion-text-color);
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ion-color-medium);
+    margin-bottom: 24px;
+  }
+}
+
+.primary-action-btn {
+  margin: 0;
+  --border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+}
+
+ion-fab-button {
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-primary-contrast);
+}

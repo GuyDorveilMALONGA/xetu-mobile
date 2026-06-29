@@ -1,0 +1,23 @@
+<ion-tabs>
+  <ion-tab-bar slot="bottom" class="xetu-tab-bar" [style.display]="isTabBarVisible() ? 'flex' : 'none'">
+    <ion-tab-button tab="carte" href="/tabs/carte">
+      <ion-icon aria-hidden="true" name="map"></ion-icon>
+      <ion-label>Carte</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="itineraire" href="/tabs/itineraire">
+      <ion-icon aria-hidden="true" name="git-compare"></ion-icon>
+      <ion-label>Itinéraire</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="chat" href="/tabs/chat">
+      <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
+      <ion-label>Chat IA</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="mes-lignes" href="/tabs/mes-lignes">
+      <ion-icon aria-hidden="true" name="list"></ion-icon>
+      <ion-label>Mes lignes</ion-label>
+    </ion-tab-button>
+  </ion-tab-bar>
+</ion-tabs>

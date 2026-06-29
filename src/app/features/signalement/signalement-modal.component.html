@@ -1,0 +1,178 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Signaler un bus</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Fermer</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-progress-bar [value]="getProgressValue()"></ion-progress-bar>
+</ion-header>
+
+<ion-content class="ion-padding signalement-content">
+  <!-- SUCCESS STATE -->
+  @if (showSuccess()) {
+    <div class="success-container animate-fade">
+      <div class="success-icon-wrapper">
+        <ion-icon name="checkmark-circle" color="success" class="success-checkmark"></ion-icon>
+      </div>
+      <h2>Merci beaucoup !</h2>
+      <p>Votre signalement a été enregistré avec succès.</p>
+      <p class="subtitle">Il est maintenant visible par la communauté Xëtu. 🚌</p>
+    </div>
+  }
+  
+  <!-- RATE LIMIT STATE (429) -->
+  @else if (rateLimitCountdown() > 0) {
+    <div class="error-container animate-fade">
+      <ion-icon name="alert-circle" color="warning" class="error-large-icon"></ion-icon>
+      <h2>Trop de signalements</h2>
+      <p>Pour éviter les spams, vous devez patienter un instant avant d'envoyer un nouveau signalement.</p>
+      
+      <div class="countdown-circle">
+        <span class="countdown-number">{{ rateLimitCountdown() }}</span>
+        <span class="countdown-unit">secondes</span>
+      </div>
+      
+      <p class="subtitle">Merci de votre patience !</p>
+    </div>
+  }
+
+  <!-- WIZARD STEPS -->
+  @else {
+    <!-- STEP 1: SELECT LINE -->
+    @if (step() === 1) {
+      <div class="step-container animate-fade">
+        <p class="step-title">Étape 1 : Choisir la ligne de bus</p>
+        <div class="lines-grid">
+          @for (line of mvpLines; track line) {
+            <button class="line-tile" (click)="selectLigne(line)">
+              <span class="line-num">{{ line }}</span>
+              <span class="line-label">Ligne {{ line }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- STEP 2: SELECT STOP -->
+    @if (step() === 2) {
+      <div class="step-container animate-fade">
+        <p class="step-title">Étape 2 : Choisir l'arrêt où vous êtes</p>
+        
+        <ion-searchbar
+          placeholder="Rechercher l'arrêt (ex: Fann, Hlm)..."
+          [(ngModel)]="searchQuery"
+          (ionInput)="onSearchInput()"
+          [debounce]="200">
+        </ion-searchbar>
+
+        <!-- GPS / Nearby Stops Section -->
+        @if (isGpsLoading()) {
+          <div class="gps-loading">
+            <ion-spinner name="crescent" size="small" color="primary"></ion-spinner>
+            <span>Recherche des arrêts à proximité via GPS...</span>
+          </div>
+        } @else if (nearbyStops().length > 0 && !searchQuery.trim()) {
+          <div class="nearby-section">
+            <p class="section-subtitle">📍 Arrêts les plus proches</p>
+            <ion-list lines="none" class="stops-list">
+              @for (stop of nearbyStops(); track stop) {
+                <ion-item button (click)="selectArret(stop)" class="stop-item">
+                  <ion-icon name="pin" slot="start" color="primary"></ion-icon>
+                  <ion-label>{{ stop }}</ion-label>
+                </ion-item>
+              }
+            </ion-list>
+          </div>
+        }
+
+        <!-- Search Results List -->
+        @if (searchResults().length > 0) {
+          <div class="search-results-section">
+            <p class="section-subtitle">🔍 Résultats de recherche</p>
+            <ion-list lines="none" class="stops-list">
+              @for (stop of searchResults(); track stop) {
+                <ion-item button (click)="selectArret(stop)" class="stop-item">
+                  <ion-label>{{ stop }}</ion-label>
+                </ion-item>
+              }
+            </ion-list>
+          </div>
+        } @else if (searchQuery.trim().length >= 2 && !isSearchLoading()) {
+          <div class="no-results">
+            <p>Aucun arrêt trouvé pour "{{ searchQuery }}"</p>
+          </div>
+        }
+
+        @if (isSearchLoading()) {
+          <div class="search-loading">
+            <ion-spinner name="crescent" size="small"></ion-spinner>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- STEP 3: DETAILS & SUBMIT -->
+    @if (step() === 3) {
+      <div class="step-container animate-fade">
+        <p class="step-title">Étape 3 : Valider les détails</p>
+
+        <ion-card class="summary-card">
+          <ion-card-content>
+            <div class="summary-row">
+              <span class="label">Ligne :</span>
+              <span class="value-badge">{{ selectedLigne() }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="label">Arrêt :</span>
+              <span class="value-text">{{ selectedArret() }}</span>
+            </div>
+            @if (gpsCoords()) {
+              <div class="summary-row gps-row">
+                <ion-icon name="pin" color="success"></ion-icon>
+                <span class="gps-text">Position GPS enregistrée</span>
+              </div>
+            }
+          </ion-card-content>
+        </ion-card>
+
+        <p class="input-label">Où vous situez-vous ?</p>
+        <div class="mode-selector">
+          <button class="mode-btn" [class.active]="mode() === 'vu'" (click)="mode.set('vu')">
+            <span class="mode-icon">👁️</span>
+            <span class="mode-title">Je l'ai vu passer</span>
+            <span class="mode-desc">Le bus est passé devant l'arrêt</span>
+          </button>
+
+          <button class="mode-btn" [class.active]="mode() === 'dedans'" (click)="mode.set('dedans')">
+            <span class="mode-icon">🚌</span>
+            <span class="mode-title">Je suis dedans</span>
+            <span class="mode-desc">Je voyage actuellement à bord</span>
+          </button>
+        </div>
+
+        <p class="input-label">Observation (optionnelle)</p>
+        <textarea
+          class="xetu-textarea"
+          placeholder="Ex: Très chargé, Panne, Trafic lent..."
+          [(ngModel)]="observation"
+          maxlength="140">
+        </textarea>
+
+        <div class="action-buttons-row">
+          <ion-button fill="outline" class="back-btn" (click)="goBack()" [disabled]="isSubmitting()">
+            Retour
+          </ion-button>
+
+          <ion-button expand="block" class="submit-btn" (click)="submitReport()" [disabled]="isSubmitting()">
+            @if (isSubmitting()) {
+              <ion-spinner name="crescent" size="small"></ion-spinner>
+            } @else {
+              Valider le signalement
+            }
+          </ion-button>
+        </div>
+      </div>
+    }
+  }
+</ion-content>

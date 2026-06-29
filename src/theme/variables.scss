@@ -1,0 +1,95 @@
+/* src/theme/variables.scss */
+
+:root {
+  /* ── Custom Xëtu Tokens ── */
+  --bg:        #0A0F1E;
+  --surface:   #111827;
+  --surface1:  #111827;
+  --surface2:  #1a2235;
+  --surface3:  #212d42;
+
+  --orange:        #FF6B35;
+  --orange-dim:    rgba(255, 107, 53, 0.15);
+  --orange-border: rgba(255, 107, 53, 0.3);
+  --green:         #00D67F;
+  --green-dim:     rgba(0, 214, 127, 0.12);
+  --yellow:        #FFD166;
+  --yellow-dim:    rgba(255, 209, 102, 0.12);
+  --red:           #FF4757;
+  --red-dim:       rgba(255, 71, 87, 0.12);
+
+  --text:     #F0F4FF;
+  --text-dim: #c4cde0;
+  --muted:    #6B7A99;
+
+  --border:       rgba(255, 255, 255, 0.07);
+  --border-hover: rgba(255, 107, 53, 0.3);
+
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  24px;
+
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  --shadow-sm:     0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md:     0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-orange: 0 4px 16px rgba(255, 107, 53, 0.3);
+
+  --t-fast:   0.15s ease;
+  --t-normal: 0.25s ease;
+  --t-spring: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Ionic 8 Color Palette Overrides (Dark Theme Default) ── */
+  --ion-background-color: var(--bg);
+  --ion-text-color: var(--text);
+
+  /* Primary Color (Orange) */
+  --ion-color-primary: var(--orange);
+  --ion-color-primary-rgb: 255, 107, 53;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #e05e2f;
+  --ion-color-primary-tint: #ff7a49;
+
+  /* Success Color (Green) */
+  --ion-color-success: var(--green);
+  --ion-color-success-rgb: 0, 214, 127;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #00bc70;
+  --ion-color-success-tint: #1ada8c;
+
+  /* Warning Color (Yellow) */
+  --ion-color-warning: var(--yellow);
+  --ion-color-warning-rgb: 255, 209, 102;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0, 0, 0;
+  --ion-color-warning-shade: #e0b85a;
+  --ion-color-warning-tint: #ffd675;
+
+  /* Danger Color (Red) */
+  --ion-color-danger: var(--red);
+  --ion-color-danger-rgb: 255, 71, 87;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #e03e4d;
+  --ion-color-danger-tint: #ff5968;
+
+  /* Medium Color (Muted) */
+  --ion-color-medium: var(--muted);
+  --ion-color-medium-rgb: 107, 122, 153;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #5e6b87;
+  --ion-color-medium-tint: #7a87a3;
+
+  /* Item Background Overrides */
+  --ion-item-background: var(--surface);
+  --ion-card-background: var(--surface);
+}

@@ -1,0 +1,380 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Itinéraire</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="itineraire-content">
+  <!-- Search Panel -->
+  <div class="search-panel ion-padding">
+    <div class="inputs-container">
+      <div class="input-row">
+        <ion-input
+          label="Départ"
+          labelPlacement="stacked"
+          placeholder="Entrez le point de départ..."
+          [value]="fromQuery()"
+          (ionInput)="onInputChange('from', $any($event).target.value)"
+          (focus)="activeInput.set('from')"
+          class="xetu-input">
+        </ion-input>
+      </div>
+
+      <div class="swap-divider">
+        <hr class="divider-line" />
+        <ion-button fill="clear" class="swap-button" (click)="swapPoints()">
+          <ion-icon name="swap-vertical" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+
+      <div class="input-row">
+        <ion-input
+          label="Arrivée"
+          labelPlacement="stacked"
+          placeholder="Entrez la destination..."
+          [value]="toQuery()"
+          (ionInput)="onInputChange('to', $any($event).target.value)"
+          (focus)="activeInput.set('to')"
+          class="xetu-input">
+        </ion-input>
+      </div>
+    </div>
+
+    <!-- Toggle & Action -->
+    <div class="options-row">
+      <ion-item lines="none" class="toggle-item">
+        <ion-label>Sans correspondance</ion-label>
+        <ion-toggle [checked]="noTransfer()" (ionChange)="noTransfer.set($event.detail.checked)"></ion-toggle>
+      </ion-item>
+
+      <ion-button
+        expand="block"
+        class="search-action-button"
+        [disabled]="!fromQuery().trim() || !toQuery().trim() || isLoading()"
+        (click)="calculateRoute()">
+        <ion-icon name="search" slot="start"></ion-icon>
+        Calculer le trajet
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Autocomplete Suggestions Overlay -->
+  @if (activeInput() === 'from' && fromSuggestions().length > 0) {
+    <div class="suggestions-overlay">
+      <ion-list lines="full">
+        @for (stop of fromSuggestions(); track stop) {
+          <ion-item button (click)="selectSuggestion('from', stop)">
+            <ion-label>{{ stop }}</ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    </div>
+  }
+
+  @if (activeInput() === 'to' && toSuggestions().length > 0) {
+    <div class="suggestions-overlay">
+      <ion-list lines="full">
+        @for (stop of toSuggestions(); track stop) {
+          <ion-item button (click)="selectSuggestion('to', stop)">
+            <ion-label>{{ stop }}</ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Calcul du meilleur itinéraire...</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (errorMessage()) {
+    <div class="error-container ion-padding">
+      <ion-card class="error-card">
+        <ion-card-content class="error-content">
+          <ion-icon name="alert-circle" color="danger" class="error-icon"></ion-icon>
+          <p>{{ errorMessage() }}</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  }
+
+  <!-- Results Section -->
+  @if (routeResult(); as result) {
+    <div class="results-container ion-padding">
+      
+      <!-- Direct Routes -->
+      @if (directRoutes(result).length > 0) {
+        <p class="section-title">Itinéraires directs ({{ directRoutes(result).length }})</p>
+        
+        @for (route of directRoutes(result); track route.number + $index; let idx = $index) {
+          <ion-card class="route-card" [class.best-route]="idx === 0">
+            <div class="best-badge" *ngIf="idx === 0">Meilleure option</div>
+            <ion-card-content>
+              <div class="route-header">
+                <div class="line-badge">{{ route.number }}</div>
+                <div class="route-summary">
+                  <h3>Ligne {{ route.number }}</h3>
+                  <p>{{ route.name }}</p>
+                </div>
+              </div>
+
+              <div class="route-details">
+                <div class="detail-item">
+                  <span class="label">Arrêts :</span>
+                  <span class="value">{{ route.nb_stops }} arrêts</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Temps estimé :</span>
+                  <span class="value">~{{ estimatedBusMinutes(route) }} min</span>
+                </div>
+              </div>
+
+              <!-- Expandable Stop List -->
+              <div class="stops-expansion">
+                <ion-button fill="clear" size="small" class="expand-toggle" (click)="toggleRouteExpansion('direct_' + idx)">
+                  {{ isRouteExpanded('direct_' + idx) ? 'Masquer le trajet' : 'Voir les arrêts (' + route.nb_stops + ')' }}
+                  <ion-icon [name]="isRouteExpanded('direct_' + idx) ? 'chevron-up' : 'chevron-down'" slot="end"></ion-icon>
+                </ion-button>
+
+                @if (isRouteExpanded('direct_' + idx)) {
+                  <div class="stops-list animate-fade">
+                    @for (stop of route.stops; track stop) {
+                      <div class="stop-node">{{ stop }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </ion-card-content>
+          </ion-card>
+        }
+      }
+
+      <!-- Walk + Direct Routes -->
+      @if (walkDirectRoutes(result).length > 0) {
+        <p class="section-title">Marche + bus ({{ walkDirectRoutes(result).length }})</p>
+
+        @for (route of walkDirectRoutes(result); track route.number + '_' + $index; let idx = $index) {
+          <ion-card class="route-card walk-card" [class.best-route]="idx === 0">
+            <div class="best-badge" *ngIf="idx === 0">Meilleure option</div>
+            <ion-card-content>
+              <div class="walk-header">
+                <div class="walk-icon-container">
+                  <ion-icon name="walk"></ion-icon>
+                  <span>{{ route.walk_min }} min ({{ route.walk_dist_m }}m)</span>
+                </div>
+                <ion-icon name="arrow-forward" class="transfer-arrow"></ion-icon>
+                <div class="line-badge">{{ route.number }}</div>
+              </div>
+
+              <div class="walk-body">
+                <h3>Prendre le bus à <strong>{{ route.walk_stop }}</strong></h3>
+                <p>Marcher jusqu'à <strong>{{ route.walk_stop }}</strong>, puis prendre la <strong>Ligne {{ route.number }}</strong>.</p>
+              </div>
+
+              <div class="route-details">
+                <div class="detail-item">
+                  <span class="label">Bus :</span>
+                  <span class="value">{{ route.nb_stops }} arrêts</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Total :</span>
+                  <span class="value">{{ route.total_min }} min</span>
+                </div>
+                <div class="detail-item" *ngIf="route.walk_dest_m">
+                  <span class="label">Marche arrivée :</span>
+                  <span class="value">{{ route.walk_dest_min }} min</span>
+                </div>
+              </div>
+
+              <div class="stops-expansion">
+                <ion-button fill="clear" size="small" class="expand-toggle" (click)="toggleRouteExpansion('walk_' + idx)">
+                  {{ isRouteExpanded('walk_' + idx) ? 'Masquer le trajet' : 'Voir les arrêts (' + route.nb_stops + ')' }}
+                  <ion-icon [name]="isRouteExpanded('walk_' + idx) ? 'chevron-up' : 'chevron-down'" slot="end"></ion-icon>
+                </ion-button>
+
+                @if (isRouteExpanded('walk_' + idx)) {
+                  <div class="stops-list animate-fade">
+                    @for (stop of route.stops; track stop) {
+                      <div class="stop-node">{{ stop }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </ion-card-content>
+          </ion-card>
+        }
+      }
+
+      <!-- Transfer Routes -->
+      @if (transferRoutes(result).length > 0) {
+        <p class="section-title">Itinéraires avec correspondance ({{ transferRoutes(result).length }})</p>
+
+        @for (route of transferRoutes(result); track route.number1 + '_' + route.number2 + '_' + route.transfer + '_' + $index; let idx = $index) {
+        <ion-card class="route-card transfer-card" [class.best-route]="idx === 0">
+          <div class="best-badge" *ngIf="idx === 0">Meilleure option</div>
+          <ion-card-content>
+            <div class="transfer-header">
+              <div class="line-badge">{{ route.number1 }}</div>
+              <ion-icon name="arrow-forward" class="transfer-arrow"></ion-icon>
+              <div class="line-badge secondary">{{ route.number2 }}</div>
+            </div>
+
+            <div class="transfer-body">
+              <h3>Changement à <strong>{{ route.transfer }}</strong></h3>
+              <p>Prendre la <strong>Ligne {{ route.number1 }}</strong>, descendre à <strong>{{ route.transfer }}</strong>, puis prendre la <strong>Ligne {{ route.number2 }}</strong>.</p>
+            </div>
+
+            <div class="route-details">
+              <div class="detail-item">
+                <span class="label">Total arrêts :</span>
+                <span class="value">{{ route.nb_stops }} arrêts</span>
+              </div>
+              <div class="detail-item" *ngIf="route.total_min">
+                <span class="label">Temps estimé :</span>
+                <span class="value">{{ route.total_min }} min</span>
+              </div>
+            </div>
+
+            <!-- Expandable Stop List for Transfer -->
+            <div class="stops-expansion">
+              <ion-button fill="clear" size="small" class="expand-toggle" (click)="toggleRouteExpansion('transfer_' + idx)">
+                {{ isRouteExpanded('transfer_' + idx) ? 'Masquer le détail' : 'Voir le détail du trajet' }}
+                <ion-icon [name]="isRouteExpanded('transfer_' + idx) ? 'chevron-up' : 'chevron-down'" slot="end"></ion-icon>
+              </ion-button>
+
+              @if (isRouteExpanded('transfer_' + idx)) {
+                <div class="stops-list animate-fade">
+                  <div class="stop-node-section-title">Tronçon 1 (Ligne {{ route.number1 }})</div>
+                  @for (stop of route.stops1; track stop) {
+                    <div class="stop-node" [class.transfer-node]="stop === route.transfer">{{ stop }}</div>
+                  }
+                  
+                  <div class="stop-node-section-title">Tronçon 2 (Ligne {{ route.number2 }})</div>
+                  @for (stop of route.stops2; track stop) {
+                    <div class="stop-node">{{ stop }}</div>
+                  }
+                </div>
+              }
+            </div>
+          </ion-card-content>
+        </ion-card>
+        }
+      }
+
+      <!-- Transfer Alternative -->
+      @if (result.alt_transfer; as alt) {
+        <p class="section-title">Alternative avec correspondance</p>
+        <ion-card class="route-card transfer-card">
+          <ion-card-content>
+            <div class="transfer-header">
+              <div class="line-badge">{{ alt.number1 }}</div>
+              <ion-icon name="arrow-forward" class="transfer-arrow"></ion-icon>
+              <div class="line-badge secondary">{{ alt.number2 }}</div>
+            </div>
+
+            <div class="transfer-body">
+              <h3>Changement à <strong>{{ alt.transfer }}</strong></h3>
+              <p>Prendre la <strong>Ligne {{ alt.number1 }}</strong>, descendre à <strong>{{ alt.transfer }}</strong>, puis prendre la <strong>Ligne {{ alt.number2 }}</strong>.</p>
+            </div>
+
+            <div class="route-details">
+              <div class="detail-item">
+                <span class="label">Temps estimé :</span>
+                <span class="value">{{ alt.total_min }} min</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Arrêts :</span>
+                <span class="value">{{ alt.nb_stops }}</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      }
+
+      <!-- Walk + Direct Route (alt_walk) -->
+      @if (result.alt_walk; as walkAlt) {
+        <p class="section-title">Alternative à pied + bus</p>
+        <ion-card class="route-card walk-card">
+          <ion-card-content>
+            <div class="walk-header">
+              <div class="walk-icon-container">
+                <ion-icon name="walk"></ion-icon>
+                <span>{{ walkAlt.walk_min }} min ({{ walkAlt.walk_dist_m }}m)</span>
+              </div>
+              <ion-icon name="arrow-forward" class="transfer-arrow"></ion-icon>
+              <div class="line-badge">{{ walkAlt.number }}</div>
+            </div>
+
+            <div class="walk-body">
+              <h3>Prendre le bus à <strong>{{ walkAlt.walk_stop }}</strong></h3>
+              <p>Marcher <strong>{{ walkAlt.walk_dist_m }}m</strong> jusqu'à l'arrêt <strong>{{ walkAlt.walk_stop }}</strong>, puis prendre la <strong>Ligne {{ walkAlt.number }}</strong>.</p>
+            </div>
+
+            <div class="route-details">
+              <div class="detail-item">
+                <span class="label">Total temps :</span>
+                <span class="value">{{ walkAlt.total_min }} min</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Marche dest. :</span>
+                <span class="value">{{ walkAlt.walk_dest_min }} min ({{ walkAlt.walk_dest_m }}m)</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      }
+
+      <!-- Not Found / Error States -->
+      @if (result.status === 'not_found' || result.status === 'no_transfer_not_found') {
+        <ion-card class="error-card">
+          <ion-card-content class="error-content">
+            <ion-icon name="alert-circle" color="warning" class="error-icon"></ion-icon>
+            <h3>Aucun itinéraire trouvé</h3>
+            <p>
+              @if (result.status === 'no_transfer_not_found') {
+                Aucun itinéraire direct trouvé. Désactivez l'option "Sans correspondance" pour afficher des trajets avec correspondance.
+              } @else {
+                Nous n'avons pas trouvé de trajet direct ou avec correspondance entre ces deux arrêts. Vérifiez l'orthographe ou essayez d'autres arrêts.
+              }
+            </p>
+          </ion-card-content>
+        </ion-card>
+      }
+
+      @if (result.status === 'stop_not_found') {
+        <ion-card class="error-card">
+          <ion-card-content class="error-content">
+            <ion-icon name="alert-circle" color="warning" class="error-icon"></ion-icon>
+            <h3>Arrêt non répertorié</h3>
+            <p>L'arrêt <strong>"{{ result.query }}"</strong> n'a pas été trouvé. Veuillez utiliser les suggestions pour sélectionner un arrêt existant.</p>
+          </ion-card-content>
+        </ion-card>
+      }
+
+      @if (result.status === 'same_stop') {
+        <ion-card class="error-card">
+          <ion-card-content class="error-content">
+            <ion-icon name="alert-circle" color="warning" class="error-icon"></ion-icon>
+            <h3>Départ et arrivée identiques</h3>
+            <p>Le point de départ et le point d'arrivée sont les mêmes. Veuillez choisir deux arrêts différents.</p>
+          </ion-card-content>
+        </ion-card>
+      }
+
+      @if (result.status === 'error') {
+        <ion-card class="error-card">
+          <ion-card-content class="error-content">
+            <ion-icon name="alert-circle" color="danger" class="error-icon"></ion-icon>
+            <h3>Erreur de calcul</h3>
+            <p>{{ result.message || 'Une erreur est survenue lors du calcul de l\'itinéraire.' }}</p>
+          </ion-card-content>
+        </ion-card>
+      }
+    </div>
+  }
+</ion-content>

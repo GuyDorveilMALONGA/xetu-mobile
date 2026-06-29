@@ -1,0 +1,106 @@
+<ion-content [fullscreen]="true" class="carte-content">
+  <!-- Map container -->
+  <div id="map" class="map-container"></div>
+
+  <!-- Floating Action Buttons -->
+  <div class="floating-controls">
+    <ion-button (click)="getBuses()" class="control-btn" [disabled]="isLoading()">
+      @if (isLoading()) {
+        <ion-spinner name="crescent" size="small"></ion-spinner>
+      } @else {
+        <ion-icon name="refresh"></ion-icon>
+      }
+    </ion-button>
+
+    <ion-button (click)="centerOnUser()" class="control-btn" [disabled]="!userLocation()">
+      <ion-icon name="locate"></ion-icon>
+    </ion-button>
+  </div>
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="report-fab">
+    <ion-fab-button (click)="openSignalement()" aria-label="Signaler un bus">
+      <ion-icon name="megaphone"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- Bottom Sheet Modal -->
+  <ion-modal
+    [isOpen]="true"
+    [backdropDismiss]="false"
+    [breakpoints]="[0.15, 0.5, 0.9]"
+    [initialBreakpoint]="0.15"
+    [backdropBreakpoint]="0.5"
+    class="carte-bottom-modal">
+    <ng-template>
+      <ion-content class="bottom-sheet-content ion-padding">
+        <div class="bottom-sheet-handle"></div>
+
+        <div class="bottom-sheet-header">
+          <h2>Bus actifs</h2>
+          @if (activeBuses().length > 0) {
+            <span class="count-badge">{{ activeBuses().length }} bus</span>
+          }
+        </div>
+
+        <!-- LOADING STATE -->
+        @if (isLoading()) {
+          <div class="sheet-state-container">
+            <ion-spinner name="crescent" color="primary"></ion-spinner>
+            <p>Chargement des positions des bus...</p>
+          </div>
+        }
+
+        <!-- ERROR STATE -->
+        @else if (error()) {
+          <div class="sheet-state-container error-state">
+            <ion-icon name="alert-circle" color="danger"></ion-icon>
+            <p>{{ error() }}</p>
+            <ion-button size="small" fill="outline" (click)="getBuses()">
+              Réessayer
+            </ion-button>
+          </div>
+        }
+
+        <!-- LIST STATE -->
+        @else {
+          @if (activeBuses().length > 0) {
+            <div class="bus-list">
+              @for (bus of activeBuses(); track (bus.ligne + '-' + bus.lat + '-' + bus.lon)) {
+                <div class="bus-card" (click)="selectBus(bus)">
+                  <div class="bus-card-main">
+                    <div class="line-badge">
+                      {{ bus.ligne }}
+                    </div>
+                    <div class="bus-info">
+                      <div class="bus-direction">
+                        Direction {{ bus.direction || 'Inconnue' }}
+                      </div>
+                      <div class="bus-subtext">
+                        <span>Dernier arrêt : {{ bus.arret_signale || 'Inconnu' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bus-card-meta">
+                    <div class="freshness" [ngClass]="getFreshnessClass(bus.minutes_depuis_signalement)">
+                      {{ getFreshnessText(bus.minutes_depuis_signalement) }}
+                    </div>
+                    <div class="source-label">
+                      {{ getSourceLabel(bus.tracking_mode) }}
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="sheet-state-container empty-state">
+              <ion-icon name="bus" color="medium"></ion-icon>
+              <p>Aucun bus actif en circulation pour le moment.</p>
+              <p class="subtitle">Les positions s'affichent au fil des signalements de la communauté.</p>
+            </div>
+          }
+        }
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>

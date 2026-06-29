@@ -1,6 +1,6 @@
 # AGENTS.md - Xetu Mobile
 
-Short contract for agents working in the Expo mobile repo.
+Short contract for agents working in the Ionic Angular + Capacitor mobile repo.
 
 ## Project Context
 
@@ -10,8 +10,7 @@ It is a separate repo from the backend:
 - Mobile repo: `C:\Users\DELL\Desktop\xetu-mobile`
 - Backend source of truth: `C:\Users\DELL\Desktop\whatsapp-agent`
 
-The mobile app consumes backend HTTP APIs. Do not copy backend business logic
-into this repo.
+The mobile app consumes backend HTTP/WebSocket APIs. Do not copy backend business logic into this repo.
 
 ## Product Authorities
 
@@ -19,52 +18,26 @@ Read these before product or source changes:
 
 - `BIBLE.md` - north-star, roadmap, phase order.
 - `PRD.md` - exact product slices, backend contracts, acceptance criteria.
-- `DORYX-MOBILE-SETUP.md` - Doryx MCP wiring and rollback.
-- `.doryx/decisions.md` when present - local Doryx decisions/backlog.
 
 Contract rule:
 
 - API contracts come from the backend code, not guesses.
-- If `PRD.md` and backend code disagree, inspect backend code and update the
-  PRD before implementing.
-- Decisions belong in Doryx. The Bible/PRD may reference them but should not
-  become a second decision source.
+- If `PRD.md` and backend code disagree, inspect backend code and update the PRD before implementing.
 
-## Expo Version Rule
+## Technical Stack
 
-Expo changes quickly. Before adding native libraries, build tooling, push,
-notifications, permissions, EAS, Android, or iOS config, read the exact Expo
-SDK docs for this project version.
+Current active stack:
 
-Current stack:
-
-- Expo SDK 56
-- React Native 0.85
-- React 19.2
-- TypeScript
+- **Ionic Framework**: v8.x (Web Components)
+- **Angular**: v20.x (Standalone components, Signals for state management, new control flow, no NgModules)
+- **Capacitor**: v8.x (Native bridge, edge-to-edge Android support, Swift Package Manager iOS)
+- **TypeScript**: strict mode
 
 Start from:
 
-- https://docs.expo.dev/versions/latest/
-- https://docs.expo.dev/develop/development-builds/introduction/
-- https://docs.expo.dev/build/introduction/
-- https://docs.expo.dev/push-notifications/overview/
-- https://docs.expo.dev/guides/environment-variables/
-
-## Doryx State
-
-If `.doryx/state.json` exists, Doryx is active.
-
-- `INTAKE` / `PLAN`: investigate and design only.
-- `EXECUTE`: source edits allowed.
-- `VERIFY`: verification only; no source edits.
-- `REVIEW`: review evidence only.
-- `DONE` / `CANCELLED`: start/reset/archive intentionally before new work.
-
-Never fake verification, review, or PASS artifacts.
-
-`.doryx/` is ignored by git. It is local runtime state for this mobile repo and
-must not be confused with the backend Doryx state.
+- https://ionicframework.com/docs
+- https://capacitorjs.com/docs
+- https://angular.dev
 
 ## Before Each Diff
 
@@ -84,17 +57,13 @@ If you cannot fill it, investigate more.
 2. Design: compare approaches when structure changes or choices are irreversible.
 3. Implementation: make one coherent diff and verify it.
 
-Do not read the whole repo by default. Read the docs above, then only the
-relevant source.
+Do not read the whole repo by default. Read the docs above, then only the relevant source.
 
 ## Mobile Boundaries
 
-- No secrets in repo, logs, Doryx memory, or chat output.
-- `.env` stays local. Only non-secret `EXPO_PUBLIC_*` values may be exposed to
-  the app bundle.
-- Do not add push, device identity, background location, store metadata, or
-  native permissions without checking `PRD.md` and recording the needed Doryx
-  decision.
+- No secrets in repo, logs, or chat output.
+- `.env` stays local. Only environment variables defined in environment files may be exposed.
+- Do not add push, device identity, background location, store metadata, or native permissions without checking `PRD.md`.
 - Backend changes belong in `whatsapp-agent`, with that repo's rules and tests.
 - Native app code belongs in `xetu-mobile`.
 
@@ -103,8 +72,8 @@ relevant source.
 Before implementing a screen that calls the backend:
 
 - Inspect the real endpoint in `whatsapp-agent`.
-- Derive or update TypeScript types from the actual response.
-- Preserve pointy details from `PRD.md`, especially:
+- Derive or update TypeScript types from the actual response (defined in `src/app/core/models/models.ts`).
+- Preserve details from `PRD.md` / `IONIC_MIGRATION_PLAN.md`, especially:
   - `/api/stops/search`, not `/api/stops`
   - `/api/route` uses query param `from`
   - `/api/report` treats `200 already_recorded` as idempotent success
@@ -115,10 +84,10 @@ Before implementing a screen that calls the backend:
 
 Use focused checks first:
 
-- `npx.cmd tsc --noEmit`
-- `npx.cmd expo config --type public`
-- web preview at `http://localhost:8082/` when UI changes
-- Android emulator checks when native behavior is touched
+- `npm run build` (runs `ng build`, verifies Angular compilation)
+- `npx ng test --watch=false --browsers=ChromeHeadless` (runs Karma unit tests)
+- `npx cap sync android` (syncs web assets and native plugins with Android)
+- `node verify-milestone1.js` (runs milestone checks)
 
 If a check was not run, say so. Never say "done" without executed verification.
 
@@ -129,5 +98,4 @@ Keep chat lean. Final reports should include:
 - changes made
 - tests/checks run and exact result
 - files touched outside scope
-- residual risks for 3+ files, backend changes, native permissions, push, or
-  store work
+- residual risks

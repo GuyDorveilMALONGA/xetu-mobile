@@ -1,0 +1,56 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Mes Lignes</ion-title>
+    <ion-buttons slot="end">
+      @if (isOffline()) {
+        <span class="offline-badge">Hors ligne</span>
+      }
+      <ion-button (click)="openSignalement()" class="header-signal-btn">
+        <ion-icon name="megaphone" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="mes-lignes-content">
+  <!-- Subscriptions List -->
+  @if (subscriptions().length > 0) {
+    <div class="subscriptions-list ion-padding">
+      <p class="section-title">Mes abonnements ({{ subscriptions().length }})</p>
+      
+      @for (ligne of subscriptions(); track ligne) {
+        <div class="subscription-card">
+          <div class="card-badge">{{ ligne }}</div>
+          <div class="card-info">
+            <h3>Ligne {{ ligne }}</h3>
+            <p>{{ getLineDescription(ligne) }}</p>
+          </div>
+          <ion-button fill="clear" color="danger" class="remove-button" (click)="unsubscribe(ligne)">
+            <ion-icon name="trash" slot="icon-only"></ion-icon>
+          </ion-button>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- Empty State -->
+    <div class="empty-container">
+      <div class="empty-card">
+        <div class="empty-icon">🔔</div>
+        <h2>Aucun abonnement</h2>
+        <p>Abonnez-vous à vos lignes de bus favorites pour recevoir des alertes de passage et les retrouver facilement.</p>
+        <ion-button expand="block" (click)="openSubscribeModal()" class="primary-action-btn">
+          S'abonner à une ligne
+        </ion-button>
+      </div>
+    </div>
+  }
+
+  <!-- Floating Action Button -->
+  @if (subscriptions().length > 0) {
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button (click)="openSubscribeModal()">
+        <ion-icon name="add"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  }
+</ion-content>

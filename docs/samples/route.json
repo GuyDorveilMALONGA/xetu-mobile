@@ -1,0 +1,168 @@
+{
+  "captured_at": "2026-06-29T02:10:00Z",
+  "api_base": "https://web-production-ccab8.up.railway.app",
+  "samples": [
+    {
+      "name": "direct",
+      "request": "/api/route?from=Castors&to=Fann",
+      "response": {
+        "status": "direct",
+        "origin_display": "Castors",
+        "dest_display": "Fann",
+        "routes": [
+          {
+            "number": "23",
+            "name": "Ligne 23",
+            "terminus_a": "Gare Parcelles Assainies",
+            "terminus_b": "Gare PALAIS 2",
+            "stops": [
+              "Castors",
+              "Auchan Castors",
+              "Universite Bourguiba",
+              "Face Station Shell Bourguiba",
+              "Face Immeuble Serigne Saliou Mbacke",
+              "Fun Time",
+              "Score Liberte",
+              "Sicap Karack",
+              "Ecole Police",
+              "Fann"
+            ],
+            "nb_stops": 9,
+            "score": 1080
+          }
+        ]
+      }
+    },
+    {
+      "name": "walk_direct_with_alt_transfer",
+      "request": "/api/route?from=Libert%C3%A9%206&to=Colobane",
+      "response": {
+        "status": "walk_direct",
+        "origin_display": "Arret En Face Terminus Liberte 5",
+        "dest_display": "Colobane",
+        "routes": [
+          {
+            "number": "13",
+            "name": "Ligne 13",
+            "walk_stop": "Pharmacie Fakeita",
+            "walk_dist_m": 2,
+            "walk_min": 1,
+            "stops": [
+              "Pharmacie Fakeita",
+              "En Face Creperie Le 7/5",
+              "Centre De Formation Aux Metiers De Securite",
+              "Usine Ben Taly",
+              "Cours Prives Madieye Sall",
+              "Arret Sans Nom Ouagou Niayess 1",
+              "Pharmacie Kader Diop",
+              "Pharmacie Diwan Serigne Babacar",
+              "Marche Hlm",
+              "Massalikoul Djinane",
+              "Caisse De Securite Sociale Colobane"
+            ],
+            "nb_stops": 10,
+            "walk_dest_m": 0,
+            "walk_dest_min": 0,
+            "total_min": 20,
+            "score": 1201.862541563108,
+            "zone": 200
+          }
+        ],
+        "alt_transfer": {
+          "number1": "6",
+          "name1": "Ligne 6",
+          "stops1": [
+            "Arret En Face Terminus Liberte 5",
+            "Arret Lonase",
+            "Arret Askia",
+            "Bicis Jet D'Eau",
+            "Jet D'Eau",
+            "Arret Poste Niary Tally",
+            "Arret Venisia",
+            "Arret En Face Sde",
+            "Tolsem",
+            "Centenaire"
+          ],
+          "transfer": "Centenaire",
+          "number2": "13",
+          "name2": "Ligne 13",
+          "stops2": [
+            "Centenaire",
+            "Place De L'Obelisque"
+          ],
+          "nb_stops": 10,
+          "total_min": 26,
+          "score": 1560
+        }
+      }
+    },
+    {
+      "name": "transfer",
+      "request": "/api/route?from=Castors&to=Libert%C3%A9%206",
+      "response": {
+        "status": "transfer",
+        "origin_display": "Castors",
+        "dest_display": "Arret En Face Terminus Liberte 5",
+        "routes": [
+          {
+            "number1": "23",
+            "name1": "Ligne 23",
+            "stops1": [
+              "Castors",
+              "Auchan Castors",
+              "Universite Bourguiba",
+              "Face Station Shell Bourguiba",
+              "Face Immeuble Serigne Saliou Mbacke",
+              "Fun Time",
+              "Score Liberte",
+              "Sicap Karack",
+              "Ecole Police",
+              "Fann",
+              "Ucad 1",
+              "Ucad 2",
+              "Ecole Manguiers",
+              "Police 4E",
+              "Gueule Tapee",
+              "Wurus",
+              "La Vision Pharmacie Lota",
+              "Origin Afric",
+              "Police Rebeuss",
+              "Credit Foncier Medina"
+            ],
+            "transfer": "Credit Foncier Medina",
+            "number2": "9",
+            "name2": "Ligne 9",
+            "stops2": [
+              "Credit Foncier Medina",
+              "En Face Grande Mosquee",
+              "En Face Bhs",
+              "Siege Bceao",
+              "Arret Boulevard Centenaire",
+              "Tolsem",
+              "Arret En Face Sde",
+              "Arret Venisia",
+              "Arret Poste Niary Tally",
+              "Arret Jet D'Eau",
+              "Arret Askia",
+              "Pompier Dieuppeul",
+              "Arret Lonase",
+              "Arret En Face Terminus Liberte 5"
+            ],
+            "nb_stops": 32,
+            "total_min": 70,
+            "score": 4200
+          }
+        ]
+      }
+    },
+    {
+      "name": "stop_not_found",
+      "request": "/api/route?from=zzzunknown&to=Leclerc",
+      "response": {
+        "status": "stop_not_found",
+        "which": "origin",
+        "query": "zzzunknown"
+      }
+    }
+  ]
+}

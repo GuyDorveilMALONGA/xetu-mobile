@@ -1,0 +1,177 @@
+/* src/theme/xetu.scss */
+
+/* ── Live status dot animations ── */
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.ws-status--open .ws-dot {
+  background: var(--green);
+  animation: pulse 1.5s infinite;
+}
+.ws-status--connecting .ws-dot {
+  background: var(--yellow);
+}
+.ws-status--closed .ws-dot {
+  background: var(--red);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Custom Buttons ── */
+.btn-see-bus {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--orange);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-orange);
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+.btn-see-bus:hover { opacity: 0.9; }
+.btn-see-bus:active { transform: scale(0.98); opacity: 0.85; }
+
+/* ── Filter chips ── */
+.home-filter-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px 6px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.home-filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  transition: all var(--t-fast);
+  line-height: 1;
+}
+.filter-chip:hover {
+  border-color: var(--orange-border);
+  color: var(--text);
+}
+.filter-chip--active {
+  background: var(--orange-dim);
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+/* ── Custom Animations ── */
+.slide-up-in {
+  animation: slideUp 0.25s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.typing-bounce {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  
+  span {
+    width: 6px;
+    height: 6px;
+    background-color: var(--text-dim);
+    border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out both;
+    
+    &:nth-child(1) { animation-delay: -0.32s; }
+    &:nth-child(2) { animation-delay: -0.16s; }
+  }
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
+}
+
+/* ── Geolocation status banners ── */
+.btn-geoloc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1.5px solid var(--orange);
+  border-radius: 8px;
+  color: var(--orange);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.btn-geoloc:hover:not(:disabled) { background: rgba(255, 107, 53, 0.12); }
+.btn-geoloc:active:not(:disabled) { transform: scale(0.97); }
+.btn-geoloc:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.geoloc-status {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.geoloc-status--success {
+  background: rgba(0, 214, 127, 0.12);
+  color: #00D67F;
+  border: 1px solid rgba(0, 214, 127, 0.25);
+}
+.geoloc-status--warn {
+  background: rgba(255, 209, 102, 0.12);
+  color: #FFD166;
+  border: 1px solid rgba(255, 209, 102, 0.25);
+}
+.geoloc-status--error {
+  background: rgba(255, 71, 87, 0.12);
+  color: #FF4757;
+  border: 1px solid rgba(255, 71, 87, 0.25);
+}
