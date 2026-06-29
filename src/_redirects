@@ -1,0 +1,3 @@
+/tabs/:file /:file 200
+/tabs/:section/:file /:file 200
+/* /index.html 200

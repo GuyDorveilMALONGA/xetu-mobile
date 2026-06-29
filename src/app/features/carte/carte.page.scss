@@ -14,13 +14,13 @@
   z-index: 1;
 }
 
-/* Leaflet Dark Mode CSS Filter */
+/* Keep map tiles readable; the app chrome stays dark around the map. */
 ::ng-deep {
   .leaflet-tile-container {
-    filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(95%);
+    filter: none;
   }
   .leaflet-container {
-    background: #0d1117 !important;
+    background: #dbe6e4 !important;
   }
   .leaflet-control-zoom {
     border: none !important;
