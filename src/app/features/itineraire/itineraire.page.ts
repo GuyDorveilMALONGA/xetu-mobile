@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, HostListener } from '@a
 import { CommonModule } from '@angular/common';
 import { IonContent } from '@ionic/angular/standalone';
 import { firstValueFrom, from, forkJoin, Subject, Subscription, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, map, switchMap, timeout } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
 import { StoreService } from '../../core/services/store.service';
 import { StopsSearchResponse, DirectRoute, WalkDirectRoute, TransferRoute } from '../../core/models/models';
@@ -15,6 +15,15 @@ interface StepperState {
   busSub: string;
   walk: string;
   duration: string;
+}
+
+interface RouteDetail {
+  kind: 'direct' | 'walk_direct' | 'transfer' | 'local_direct';
+  title: string;
+  subtitle: string;
+  lines: string[];
+  stops: string[];
+  transfer?: string;
 }
 
 interface DisplayStop {
@@ -49,6 +58,7 @@ interface LigneSearchResult {
 interface LocalIndex {
   stops: Record<string, LocalStopEntry>;
   lignesInfo: Record<string, LigneInfo>;
+  routeVariants: Record<string, string[][]>;
 }
 
 const FREQ_SHORTCUTS: Array<{ from: string; to: string }> = [
@@ -83,6 +93,7 @@ function loadLocalIndex(apiService: ApiService): Promise<LocalIndex> {
   const promise = (async () => {
     const stops: Record<string, LocalStopEntry> = {};
     const lignesInfo: Record<string, LigneInfo> = {};
+    const routeVariants: Record<string, string[][]> = {};
 
     try {
       const mvp = await firstValueFrom(apiService.getLocalStopsIndex());
@@ -95,6 +106,9 @@ function loadLocalIndex(apiService: ApiService): Promise<LocalIndex> {
           terminus_a: ligne.terminus_a || '',
           terminus_b: ligne.terminus_b || ''
         };
+        routeVariants[num] = [ligne.arrets || [], ligne.arrets_retour || []]
+          .filter((route) => route.length > 0)
+          .map((route) => route.map((a) => a.nom || '').filter(Boolean));
         const tous = [...(ligne.arrets || []), ...(ligne.arrets_retour || [])];
         tous.forEach((a) => {
           const nom = (a.nom || '').trim();
@@ -142,7 +156,7 @@ function loadLocalIndex(apiService: ApiService): Promise<LocalIndex> {
 
     FALLBACK_ZONES.forEach((nom) => addZone(nom, null, null, { hub: false, source: 'Zone connue' }));
 
-    return { stops, lignesInfo };
+    return { stops, lignesInfo, routeVariants };
   })();
 
   localIndexPromises.set(apiService, promise);
@@ -176,6 +190,33 @@ function searchLignesLocal(q: string, lignesInfo: Record<string, LigneInfo>): Li
     return a.numero.localeCompare(b.numero);
   });
   return res.slice(0, 10);
+}
+
+function findRouteStopIndex(route: string[], query: string): number {
+  const qn = normalizeText(query);
+  if (!qn) return -1;
+  return route.findIndex((name) => {
+    const rn = normalizeText(name);
+    return rn === qn || rn.includes(qn) || qn.includes(rn);
+  });
+}
+
+function findLocalDirectRoute(index: LocalIndex, from: string, to: string): { line: string; nbStops: number; stops: string[] } | null {
+  let best: { line: string; nbStops: number; stops: string[] } | null = null;
+
+  Object.entries(index.routeVariants).forEach(([line, variants]) => {
+    variants.forEach((route) => {
+      const fromIdx = findRouteStopIndex(route, from);
+      const toIdx = findRouteStopIndex(route, to);
+      if (fromIdx < 0 || toIdx < 0 || toIdx <= fromIdx) return;
+      const nbStops = Math.max(1, toIdx - fromIdx);
+      if (!best || nbStops < best.nbStops) {
+        best = { line, nbStops, stops: route.slice(fromIdx, toIdx + 1) };
+      }
+    });
+  });
+
+  return best;
 }
 
 function localToApiFormat(stopsRes: Array<LocalStopEntry & { nom: string }>, recentLines: string[]): DisplayStop[] {
@@ -233,6 +274,7 @@ export class ItinerairePage implements OnInit, OnDestroy {
   resFrom = signal<string>('');
   resTo = signal<string>('');
   stepper = signal<StepperState>(IDLE_STEPPER);
+  routeDetail = signal<RouteDetail | null>(null);
 
   freqShortcuts = FREQ_SHORTCUTS;
   showFreq = computed(() => !this.fromQuery().trim() && !this.toQuery().trim());
@@ -258,6 +300,7 @@ export class ItinerairePage implements OnInit, OnDestroy {
           }
           this.isSearching.set(true);
           const api$ = this.apiService.searchStops(query).pipe(
+            timeout(5000),
             catchError((err) => {
               console.warn('Stops search failed:', err);
               return of({ stops: [], total: 0, query } as StopsSearchResponse);
@@ -424,6 +467,7 @@ export class ItinerairePage implements OnInit, OnDestroy {
     this.searchResults.set([]);
     this.lignesResults.set([]);
     this.resultVisible.set(false);
+    this.routeDetail.set(null);
   }
 
   selectFreq(from: string, to: string) {
@@ -437,6 +481,7 @@ export class ItinerairePage implements OnInit, OnDestroy {
 
   resetTrip() {
     this.resultVisible.set(false);
+    this.routeDetail.set(null);
     this.activeField.set(null);
     this.searchResults.set([]);
     this.lignesResults.set([]);
@@ -469,11 +514,22 @@ export class ItinerairePage implements OnInit, OnDestroy {
     this.resFrom.set(from);
     this.resTo.set(to);
     this.stepper.set({ busMain: 'Calcul en cours...', busSub: '', walk: '', duration: '...' });
+    this.routeDetail.set(null);
 
     try {
-      const r = await firstValueFrom(this.apiService.getRoute(from, to));
+      const r = await firstValueFrom(this.apiService.getRoute(from, to).pipe(timeout(10000)));
       const status = r.status || 'not_found';
       const routes = r.routes || [];
+
+      if (status === 'error') {
+        this.stepper.set({
+          busMain: 'Impossible de calculer l\'itinéraire',
+          busSub: 'Veuillez vérifier votre connexion',
+          walk: '',
+          duration: '-'
+        });
+        return;
+      }
 
       if (status === 'stop_not_found') {
         const which = r.which === 'origin' ? 'départ' : 'destination';
@@ -516,6 +572,13 @@ export class ItinerairePage implements OnInit, OnDestroy {
           walk: r.dest_display || to,
           duration: `~${route.nb_stops * 2} min`
         });
+        this.routeDetail.set({
+          kind: 'direct',
+          title: `Ligne ${route.number}`,
+          subtitle: route.name || 'Trajet direct',
+          lines: [route.number],
+          stops: route.stops || []
+        });
       } else if (status === 'walk_direct') {
         const route = best as WalkDirectRoute;
         this.stepper.set({
@@ -523,6 +586,13 @@ export class ItinerairePage implements OnInit, OnDestroy {
           busSub: `Marche jusqu'à ${route.walk_stop || from} · ${route.nb_stops} arrêts`,
           walk: route.walk_dest_m > 0 ? `${route.walk_dest_min || 0} min à l'arrivée` : (r.dest_display || to),
           duration: `~${route.total_min || '?'} min`
+        });
+        this.routeDetail.set({
+          kind: 'walk_direct',
+          title: `Ligne ${route.number}`,
+          subtitle: `${route.walk_min || 0} min a pied jusqu'au depart`,
+          lines: [route.number],
+          stops: route.stops || []
         });
       } else if (status === 'transfer') {
         const route = best as TransferRoute;
@@ -532,22 +602,73 @@ export class ItinerairePage implements OnInit, OnDestroy {
           walk: r.dest_display || to,
           duration: `~${route.total_min || '?'} min`
         });
+        this.routeDetail.set({
+          kind: 'transfer',
+          title: `Ligne ${route.number1} puis ${route.number2}`,
+          subtitle: `Correspondance: ${route.transfer}`,
+          lines: [route.number1, route.number2],
+          stops: [...(route.stops1 || []), ...(route.stops2 || [])],
+          transfer: route.transfer
+        });
       } else {
         this.stepper.set({
-          busMain: 'Itinéraire trouvé',
+          busMain: `Format inconnu (${status})`,
           busSub: '',
-          walk: r.dest_display || to,
-          duration: '~? min'
+          walk: '',
+          duration: '-'
         });
       }
-    } catch (err) {
-      console.warn('[Itin] Erreur API route:', err);
+      if (this.routeDetail()) {
+        this.showResultContextSearch(to);
+      }
+    } catch (e) {
+      console.warn('getRoute indisponible, tentative de fallback local:', e);
+      const fallback = await this.buildLocalRouteFallback(from, to);
+      if (fallback) {
+        this.stepper.set(fallback);
+        this.showResultContextSearch(to);
+        return;
+      }
       this.stepper.set({
-        busMain: 'Calcul impossible',
-        busSub: 'Problème réseau - réessaie',
+        busMain: 'Impossible de calculer l\'itinéraire',
+        busSub: 'Veuillez vérifier votre connexion ou modifier le trajet',
         walk: '',
         duration: '-'
       });
+    }
+  }
+
+  private async buildLocalRouteFallback(from: string, to: string): Promise<StepperState | null> {
+    try {
+      const index = await loadLocalIndex(this.apiService);
+      const direct = findLocalDirectRoute(index, from, to);
+      if (!direct) return null;
+
+      this.routeDetail.set({
+        kind: 'local_direct',
+        title: `Ligne ${direct.line}`,
+        subtitle: 'Trajet direct depuis les donnees embarquees',
+        lines: [direct.line],
+        stops: direct.stops
+      });
+
+      return {
+        busMain: `Ligne ${direct.line} - direct`,
+        busSub: `${direct.nbStops} arrêt${direct.nbStops > 1 ? 's' : ''} (données embarquées)`,
+        walk: to,
+        duration: `~${direct.nbStops * 2} min`
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private showResultContextSearch(query: string) {
+    const q = query.trim();
+    this.activeField.set('to');
+    this.searchTab.set('arrets');
+    if (q.length >= 2) {
+      this.search$.next(q);
     }
   }
 }

@@ -16,22 +16,25 @@
       }
 
       <!-- Zoom Controls (left side, vertically centered) -->
-      <div class="map-controls-left" aria-label="Contrôles de zoom">
-        <button class="map-ctrl-btn map-zoom-in" type="button" aria-label="Zoomer" (click)="zoomIn()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
-        <button class="map-ctrl-btn map-zoom-out" type="button" aria-label="Dézoomer" (click)="zoomOut()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
+      <div class="map-controls-left" aria-label="Contrôles de zoom" [hidden]="welcomeMessage() !== null">
+        <div class="leaflet-control-zoom-group">
+          <button class="leaflet-control-zoom-in" type="button" aria-label="Zoomer" (click)="zoomIn()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <div class="leaflet-control-zoom-sep"></div>
+          <button class="leaflet-control-zoom-out" type="button" aria-label="Dézoomer" (click)="zoomOut()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Actions Controls (right side, vertically centered) -->
-      <div class="map-controls-right" aria-label="Contrôles d'actions">
+      <div class="map-controls-right" aria-label="Contrôles d'actions" [hidden]="welcomeMessage() !== null">
         <button class="map-ctrl-btn map-refresh-btn" type="button" aria-label="Rafraîchir" (click)="getBuses()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
@@ -80,12 +83,7 @@
 
       <div class="home-cols">
         <div class="home-col" [class.active]="activeTab() === 'buses'">
-          @if (error()) {
-            <div class="empty-state empty-state--signal">
-              <div class="empty-text">{{ error() }}</div>
-              <button class="empty-action" type="button" (click)="getBuses()">Réessayer</button>
-            </div>
-          } @else if (activeBuses().length === 0) {
+          @if (activeBuses().length === 0) {
             <div class="empty-state empty-state--signal">
               <div class="empty-text">Aucun bus actif. Le dernier signal a peut-être expiré.</div>
             </div>
@@ -97,13 +95,39 @@
             </div>
           } @else {
             @for (bus of filteredBuses(); track bus.ligne) {
-              <div class="bus-card bus-card--compact" (click)="selectBus(bus)">
+              <div class="bus-card"
+                   [class.bus-card--compact]="!isBusSelected(bus)"
+                   [class.bus-card--selected]="isBusSelected(bus)"
+                   (click)="selectBus(bus)">
                 <div class="bus-card-header">
                   <div class="bus-badge" [style.background]="freshnessColor(bus.minutes_depuis_signalement)">{{ bus.ligne }}</div>
                   <div class="bus-name">Ligne {{ bus.ligne }}</div>
                   <div class="bus-age" [ngClass]="getFreshnessClass(bus.minutes_depuis_signalement)">{{ getFreshnessText(bus.minutes_depuis_signalement) }}</div>
                 </div>
                 <div class="bus-position"><span class="xetu-icon xetu-icon--pin" aria-hidden="true"></span>{{ bus.arret_signale || '—' }}</div>
+                <div class="bus-meta-row">
+                  <span><span class="xetu-icon" [ngClass]="modeIconClass(bus.mode)" aria-hidden="true"></span>{{ modeLabel(bus.mode) }}</span>
+                  <span class="bus-confidence" [ngClass]="confidenceClass(bus)">
+                    <span class="xetu-icon" [ngClass]="confidenceIconClass(bus)" aria-hidden="true"></span>{{ confidenceLabel(bus) }}
+                  </span>
+                </div>
+                <div class="bus-status" [ngClass]="statusClass(bus)">
+                  <span class="bus-status-label">{{ statusLabel(bus) }}</span>
+                  <span class="bus-status-message">{{ statusMessage(bus) }}</span>
+                </div>
+                @if (isBusSelected(bus) && bus.next_stops_eta.length > 0) {
+                  <div class="bus-stops-preview">
+                    <div class="bus-stops-title">Prochains arrÃªts</div>
+                    <div class="bus-stops-list">
+                      @for (stop of bus.next_stops_eta.slice(0, 3); track stop.idx) {
+                        <div class="bus-stop-item" [class.bus-stop-item--current]="$index === 0">
+                          <span class="bus-stop-dot" aria-hidden="true"></span>
+                          <span>{{ stop.nom }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
               </div>
             }
           }

@@ -1,0 +1,14 @@
+{
+  "/api": {
+    "target": "https://web-production-ccab8.up.railway.app",
+    "secure": true,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/tracking": {
+    "target": "https://web-production-ccab8.up.railway.app",
+    "secure": true,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

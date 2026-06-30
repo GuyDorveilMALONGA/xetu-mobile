@@ -243,7 +243,23 @@ export class CartePage implements OnInit, OnDestroy {
   }
 
   setFilter(line: string | null) {
-    this.activeFilter.set(this.activeFilter() === line ? null : line);
+    const nextFilter = this.activeFilter() === line ? null : line;
+    this.activeFilter.set(nextFilter);
+
+    if (!nextFilter) {
+      this.selectedBusKey.set(null);
+      this.updateBusMarkers(this.activeBuses());
+    } else {
+      const bus = this.activeBuses().find(b => b.ligne === nextFilter);
+      if (bus) {
+        this.selectedBusKey.set(bus.ligne);
+        this.updateBusMarkers(this.activeBuses());
+        if (this.map) {
+          this.map.setView([bus.lat, bus.lon], 16, { animate: false });
+        }
+      }
+    }
+
     this.filterMarkers();
   }
 
@@ -384,7 +400,7 @@ export class CartePage implements OnInit, OnDestroy {
 
       // Explicitly handle database error: { buses: [], error: "db_error" }
       if (res && res.error) {
-        this.error.set(res.error);
+        this.error.set(null);
         this.storeService.activeBuses.set([]);
         this.clearBusMarkers();
       } else if (res && Array.isArray(res.buses)) {
@@ -400,8 +416,8 @@ export class CartePage implements OnInit, OnDestroy {
         throw new Error('Format de réponse invalide');
       }
     } catch (err: any) {
-      console.error('Failed to fetch buses:', err);
-      this.error.set('Impossible de charger les positions des bus.');
+      console.warn('Positions bus indisponibles, affichage état vide:', err);
+      this.error.set(null);
       this.storeService.activeBuses.set([]);
       this.clearBusMarkers();
     } finally {
@@ -536,9 +552,55 @@ export class CartePage implements OnInit, OnDestroy {
     }
   }
 
+  isBusSelected(bus: Bus): boolean {
+    return this.selectedBusKey() === bus.ligne;
+  }
+
+  modeLabel(mode: Bus['mode']): string {
+    return mode === 'dedans' ? 'Passager a bord' : 'Bus apercu';
+  }
+
+  modeIconClass(mode: Bus['mode']): string {
+    return mode === 'dedans' ? 'xetu-icon--rider' : 'xetu-icon--seen';
+  }
+
+  confidenceLabel(bus: Bus): string {
+    return bus.confiance?.label || 'Estime';
+  }
+
+  confidenceClass(bus: Bus): string {
+    const tone = bus.confiance?.tone || 'warning';
+    return ['success', 'warning', 'danger'].includes(tone)
+      ? `bus-confidence--${tone}`
+      : 'bus-confidence--warning';
+  }
+
+  confidenceIconClass(bus: Bus): string {
+    return `xetu-icon--${bus.confiance?.icon || 'signal-estimated'}`;
+  }
+
+  statusClass(bus: Bus): string {
+    return bus.minutes_depuis_signalement <= 3 ? 'bus-status--success'
+      : bus.minutes_depuis_signalement <= 5 ? 'bus-status--warning'
+      : 'bus-status--danger';
+  }
+
+  statusLabel(bus: Bus): string {
+    return bus.tracking_mode === 'live_gps' ? 'Position GPS' : 'Signal communautaire';
+  }
+
+  statusMessage(bus: Bus): string {
+    if (bus.tracking_mode === 'live_gps') {
+      return 'Position issue du suivi GPS.';
+    }
+    return bus.minutes_depuis_signalement <= 3
+      ? 'Signal recent partage par la communaute.'
+      : 'Derniere position connue, a confirmer.';
+  }
+
   freshnessColor(minutesDepuisSignalement: number): string {
-    if (minutesDepuisSignalement <= 5) return '#00D67F';
-    if (minutesDepuisSignalement <= 15) return '#FFD166';
+    if (minutesDepuisSignalement <= 3) return '#00D67F';
+    if (minutesDepuisSignalement <= 5) return '#FFD166';
     return '#FF4757';
   }
 
@@ -554,8 +616,8 @@ export class CartePage implements OnInit, OnDestroy {
   }
 
   getFreshnessClass(minutesDepuisSignalement: number): string {
-    if (minutesDepuisSignalement <= 5) return 'age-fresh';
-    if (minutesDepuisSignalement <= 15) return 'age-ok';
+    if (minutesDepuisSignalement <= 3) return 'age-fresh';
+    if (minutesDepuisSignalement <= 5) return 'age-ok';
     return 'age-old';
   }
 

@@ -75,4 +75,51 @@ describe('ApiService', () => {
     expect(req.request.headers.get('Authorization')).toBe('Bearer valid_mock_token');
     req.flush({ lignes: [], abonnements: [] });
   });
+
+  it('should not send session_id on report when no auth token exists', () => {
+    sessionServiceSpy.getToken.and.returnValue(null);
+    sessionServiceSpy.getSessionId.and.returnValue('web_local_without_token');
+
+    service.reportBus({
+      ligne: '4',
+      arret: 'Sapeur Pompier Dieuppeul',
+      mode: 'vu',
+      source: 'web_signal'
+    }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBase}/api/report`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.has('Authorization')).toBeFalse();
+    expect(req.request.body).toEqual({
+      ligne: '4',
+      arret: 'Sapeur Pompier Dieuppeul',
+      mode: 'vu',
+      source: 'web_signal'
+    });
+    req.flush({ status: 'already_recorded' });
+  });
+
+  it('should send authenticated session_id on report when token exists', () => {
+    sessionServiceSpy.getToken.and.returnValue('valid_mock_token');
+    sessionServiceSpy.getSessionId.and.returnValue('web_123');
+
+    service.reportBus({
+      ligne: '4',
+      arret: 'Sapeur Pompier Dieuppeul',
+      mode: 'vu',
+      source: 'web_signal'
+    }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBase}/api/report`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer valid_mock_token');
+    expect(req.request.body).toEqual({
+      ligne: '4',
+      arret: 'Sapeur Pompier Dieuppeul',
+      mode: 'vu',
+      source: 'web_signal',
+      session_id: 'web_123'
+    });
+    req.flush({ status: 'already_recorded' });
+  });
 });

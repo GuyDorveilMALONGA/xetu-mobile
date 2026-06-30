@@ -48,7 +48,37 @@
 
           <button class="itin-reset-link" type="button" (click)="resetTrip()">Modifier le trajet</button>
         </div>
-      } @else {
+      }
+
+      @if (routeDetail(); as detail) {
+        <div class="itin-route-detail-card">
+          <div class="itin-route-detail-head">
+            <div>
+              <div class="itin-route-detail-kicker">Details du trajet</div>
+              <div class="itin-route-detail-title">{{ detail.title }}</div>
+              <div class="itin-route-detail-sub">{{ detail.subtitle }}</div>
+            </div>
+            <div class="itin-route-detail-lines">
+              @for (line of detail.lines; track line) {
+                <span class="itin-route-line-chip">{{ line }}</span>
+              }
+            </div>
+          </div>
+
+          @if (detail.stops.length > 0) {
+            <div class="itin-route-stops">
+              @for (stop of detail.stops; track stop; let i = $index) {
+                <div class="itin-route-stop" [class.itin-route-stop--first]="i === 0" [class.itin-route-stop--last]="i === detail.stops.length - 1">
+                  <span class="itin-route-stop-dot"></span>
+                  <span class="itin-route-stop-name">{{ stop }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (!resultVisible()) {
         <div class="itin-fields-card">
           <div class="itin-field-row" [class.itin-field-active]="activeField() === 'from'" (click)="activateField('from')">
             <div class="itin-field-dot itin-field-dot--from"></div>
@@ -123,6 +153,7 @@
             }
           </div>
         }
+      }
 
         <div class="itin-search-results-wrap">
           @if (activeField()) {
@@ -230,7 +261,6 @@
             }
           }
         </div>
-      }
 
     </div>
   </div>

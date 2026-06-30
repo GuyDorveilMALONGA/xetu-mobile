@@ -18,7 +18,7 @@ describe('SignalementModalComponent', () => {
   let toastCtrlSpy: jasmine.SpyObj<ToastController>;
 
   beforeEach(async () => {
-    const apiSpy = jasmine.createSpyObj('ApiService', ['searchStops', 'getNearby', 'reportBus']);
+    const apiSpy = jasmine.createSpyObj('ApiService', ['searchStops', 'getNearby', 'reportBus', 'getLocalStopsIndex']);
     const sessionSpy = jasmine.createSpyObj('SessionService', ['ensureSession', 'getSessionId']);
     const scoreSpy = jasmine.createSpyObj('ScoreService', ['increment']);
     // Since points is a signal, we mock it as a function returning a value.
@@ -52,6 +52,33 @@ describe('SignalementModalComponent', () => {
     sessionServiceSpy.getSessionId.and.returnValue('session_123');
     apiServiceSpy.getNearby.and.returnValue(of({ status: 'success', message: '', stops: [{ nom: 'Fann', distance_m: 100, lignes: [] }] }));
     apiServiceSpy.searchStops.and.returnValue(of({ stops: [], total: 0, query: '' }));
+    apiServiceSpy.getLocalStopsIndex.and.returnValue(of({
+      lignes: {
+        '4': {
+          numero: '4',
+          arrets: [
+            {
+              nom: 'Gare DIEUPPEUL',
+              lat: 14.72309,
+              lon: -17.45865,
+              aliases_terrain: ['Dieuppeul', 'Dieupeul']
+            },
+            {
+              nom: 'Sapeur Pompier Dieuppeul',
+              lat: 14.71749,
+              lon: -17.45828
+            }
+          ],
+          arrets_retour: [
+            {
+              nom: 'Gare DIEUPPEUL',
+              lat: 14.72309,
+              lon: -17.45865
+            }
+          ]
+        }
+      }
+    }));
     apiServiceSpy.reportBus.and.returnValue(of({ id: 'report_789', status: 'recorded' }));
 
     // Mock Geolocation plugin default behavior
@@ -93,6 +120,45 @@ describe('SignalementModalComponent', () => {
     expect(component.selectedLigne()).toBe('4');
     expect(component.step()).toBe(2);
   });
+
+  it('should load real stops for the selected line and suggest Dieupeul stops with coordinates', fakeAsync(() => {
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.selectLigne('4');
+    tick();
+
+    expect(apiServiceSpy.getLocalStopsIndex).toHaveBeenCalled();
+    expect(component.lineStops().map(stop => stop.name)).toEqual([
+      'Gare DIEUPPEUL',
+      'Sapeur Pompier Dieuppeul'
+    ]);
+
+    component.onSearchInput({ target: { value: 'Dieupeul' } } as unknown as Event);
+
+    expect(component.stopSuggestions()).toEqual([
+      'Gare DIEUPPEUL',
+      'Sapeur Pompier Dieuppeul'
+    ]);
+    expect(component.shouldChooseSuggestedStop()).toBeTrue();
+    expect(component.manualStopLabel()).toBe('');
+  }));
+
+  it('should resolve manual stop only when it maps to a single real stop on the selected line', fakeAsync(() => {
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.selectLigne('4');
+    tick();
+
+    component.onSearchInput({ target: { value: 'Sapeur Pompier' } } as unknown as Event);
+
+    expect(component.stopSuggestions()).toEqual(['Sapeur Pompier Dieuppeul']);
+    expect(component.manualStopLabel()).toBe('Sapeur Pompier Dieuppeul');
+    expect(component.shouldChooseSuggestedStop()).toBeFalse();
+  }));
 
   it('should fetch nearby stops if GPS coords are inside Senegal bounds', fakeAsync(() => {
     const fixture = TestBed.createComponent(SignalementModalComponent);
@@ -138,7 +204,6 @@ describe('SignalementModalComponent', () => {
     component.selectedLigne.set('4');
     component.selectedArret.set('Fann');
     component.mode.set('dedans');
-    component.observation = 'Bus plein';
 
     component.submitReport();
     tick(); // resolve submission
@@ -148,7 +213,7 @@ describe('SignalementModalComponent', () => {
       ligne: '4',
       arret: 'Fann',
       mode: 'dedans',
-      observation: 'Bus plein',
+      observation: null,
       source: 'web_geoloc',
       lat: 14.68,
       lon: -17.45
@@ -169,7 +234,6 @@ describe('SignalementModalComponent', () => {
     component.selectedLigne.set('4');
     component.selectedArret.set('Fann');
     component.mode.set('vu');
-    component.observation = '';
 
     component.submitReport();
     tick();
@@ -183,7 +247,7 @@ describe('SignalementModalComponent', () => {
     });
   }));
 
-  it('should concatenate quality tags with observation text', fakeAsync(() => {
+  it('should submit only controlled quality tags, without free-text comments', fakeAsync(() => {
     const fixture = TestBed.createComponent(SignalementModalComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -192,7 +256,6 @@ describe('SignalementModalComponent', () => {
     component.selectedLigne.set('4');
     component.selectedArret.set('Fann');
     component.mode.set('vu');
-    component.observation = 'Passé sans s\'arrêter';
     component.selectedTags.set(['bondé', 'en retard']);
 
     component.submitReport();
@@ -202,7 +265,7 @@ describe('SignalementModalComponent', () => {
       ligne: '4',
       arret: 'Fann',
       mode: 'vu',
-      observation: 'Passé sans s\'arrêter. Tags: bondé, en retard',
+      observation: 'Tags: bondé, en retard',
       source: 'web_geoloc',
       lat: 14.68,
       lon: -17.45
@@ -247,7 +310,7 @@ describe('SignalementModalComponent', () => {
     expect(component.step()).toBe(3);
   });
 
-  it('should treat already_recorded status as a successful report but NOT increment the score', fakeAsync(() => {
+  it('should keep already_recorded on the send step and NOT increment the score', fakeAsync(() => {
     apiServiceSpy.reportBus.and.returnValue(of({ status: 'already_recorded' }));
 
     const fixture = TestBed.createComponent(SignalementModalComponent);
@@ -257,10 +320,13 @@ describe('SignalementModalComponent', () => {
 
     component.selectedLigne.set('4');
     component.selectedArret.set('Fann');
+    component.step.set(3);
     component.submitReport();
     tick();
 
-    expect(component.showSuccess()).toBeTrue();
+    expect(component.showSuccess()).toBeFalse();
+    expect(component.step()).toBe(3);
+    expect(component.submitNotice()).toContain('Aucun point');
     expect(scoreServiceSpy.increment).not.toHaveBeenCalled();
   }));
 
@@ -274,11 +340,15 @@ describe('SignalementModalComponent', () => {
 
     component.selectedLigne.set('4');
     component.selectedArret.set('Fann');
+    component.step.set(3);
     component.submitReport();
     tick();
 
     expect(component.showSuccess()).toBeTrue();
+    expect(component.step()).toBe(4);
+    expect(component.submitNotice()).toBe('');
     expect(scoreServiceSpy.increment).toHaveBeenCalledTimes(1);
+    expect(scoreServiceSpy.increment).toHaveBeenCalledWith('report_999');
   }));
 
   it('should handle 429 rate limit error and read retry_after from JSON body', fakeAsync(() => {

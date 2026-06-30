@@ -147,10 +147,12 @@ export class ApiService {
   }
 
   reportBus(report: ReportRequest): Observable<ReportResponse> {
-    const sessionId = this.sessionService.getSessionId();
+    const token = this.sessionService.getToken();
+    const authenticatedSessionId = token ? (report.session_id || this.sessionService.getSessionId()) : null;
+    const { session_id: _sessionId, ...reportWithoutSession } = report;
     const body = {
-      ...report,
-      session_id: report.session_id || sessionId,
+      ...reportWithoutSession,
+      ...(authenticatedSessionId ? { session_id: authenticatedSessionId } : {}),
       source: report.source || 'web_signal'
     };
     return this.http

@@ -2,7 +2,7 @@ import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing
 import { ItinerairePage } from './itineraire.page';
 import { ApiService } from '../../core/services/api.service';
 import { StoreService } from '../../core/services/store.service';
-import { of, throwError } from 'rxjs';
+import { firstValueFrom, from, forkJoin, Subject, Subscription, of, NEVER, throwError } from 'rxjs';
 import { RouteResponse, StopsSearchResponse } from '../../core/models/models';
 
 describe('ItinerairePage', () => {
@@ -396,15 +396,28 @@ describe('ItinerairePage', () => {
     }));
 
     it('renders a network error message when the API call throws', fakeAsync(() => {
-      apiServiceSpy.getRoute.and.returnValue(of().pipe());
-      apiServiceSpy.getRoute.and.throwError('network down');
+      apiServiceSpy.getRoute.and.returnValue(throwError(() => new Error('network down')));
 
       const component = setup();
       component.calcFromTo('Fann', 'Leclerc');
       tick();
 
-      expect(component.stepper().busMain).toBe('Calcul impossible');
-      expect(component.stepper().busSub).toBe('Problème réseau - réessaie');
+      expect(component.stepper().busMain).toBe('Impossible de calculer l\'itinéraire');
+      expect(component.stepper().busSub).toBe('Veuillez vérifier votre connexion ou modifier le trajet');
+    }));
+
+    it('cancels the loader and shows error when API never responds (timeout)', fakeAsync(() => {
+      apiServiceSpy.getRoute.and.returnValue(NEVER);
+
+      const component = setup();
+      component.calcFromTo('Fann', 'Leclerc');
+      
+      expect(component.stepper().busMain).toBe('Calcul en cours...');
+
+      tick(10000); // 10s timeout
+      
+      expect(component.stepper().busMain).toBe('Impossible de calculer l\'itinéraire');
+      expect(component.stepper().busSub).toBe('Veuillez vérifier votre connexion ou modifier le trajet');
     }));
   });
 });

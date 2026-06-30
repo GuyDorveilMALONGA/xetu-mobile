@@ -174,12 +174,15 @@
   cursor: pointer;
   white-space: nowrap;
   scroll-snap-align: start;
-  transition: all var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
   line-height: 1;
 }
-.filter-chip:hover {
-  border-color: var(--orange-border);
-  color: var(--text);
+
+.filter-chip:focus,
+.filter-chip:focus-visible,
+.filter-chip:active {
+  outline: none;
+  box-shadow: none;
 }
 .filter-chip--active {
   background: var(--orange-dim);
@@ -525,17 +528,25 @@
   border: 1px solid rgba(255, 71, 87, 0.25);
 }
 
-/* Padding pour les pages principales sous la tab-bar flottante */
+/* Padding pour les pages principales sous la tab-bar pilule Dashboard (hauteur 72px + fond) */
 .itineraire-content,
 .chat-content,
 .mylines-content {
-  --padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  --padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
-/* Padding top pour les pages sous le header non-transparent */
-.itineraire-content,
-.chat-content,
-.mylines-content {
-  --padding-top: calc(50px + env(safe-area-inset-top));
+ion-modal.subscribe-sheet-modal {
+  --height: auto;
+  --width: 100%;
+  align-items: flex-end;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
+ion-modal.subscribe-sheet-modal::part(content) {
+  height: auto;
+  max-height: calc(100vh - env(safe-area-inset-top) - 16px);
+  margin-bottom: calc(var(--nav-h, 72px) + 14px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}

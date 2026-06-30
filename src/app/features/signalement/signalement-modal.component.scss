@@ -6,9 +6,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
+}
+
+.signal-step-scroll {
+  --background: var(--bg);
+  background: var(--bg);
 }
 
 /* ── Topbar ── */
@@ -290,28 +295,42 @@
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 12px;
+  padding: 16px;
   box-shadow: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 10px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 13px 14px;
+  min-height: 158px;
 }
 .sg-recap-eyebrow {
   font-size: 10px; font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: .04em;
-  margin-bottom: 0;
+  margin-bottom: 2px;
   grid-column: 1 / -1;
 }
 .sg-recap-row-v3 {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   padding: 4px 0;
   min-width: 0;
 }
+.sg-recap-row-v3 > div:last-child {
+  min-width: 0;
+}
+.sg-recap-row-v3--stop {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}
+.sg-recap-row-v3--stop .sg-recap-meta-val {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
 .sg-recap-icon {
-  width: 26px; height: 26px;
-  border-radius: 7px;
+  width: 34px; height: 34px;
+  border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -321,11 +340,13 @@
 .sg-recap-icon--mode { background: var(--surface2);   color: var(--muted); }
 .sg-recap-meta-label { font-size: 11px; color: var(--muted); }
 .sg-recap-meta-val   {
-  font-size: 13px; font-weight: 500; color: var(--text);
-  margin-top: 1px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13.5px; font-weight: 550; color: var(--text);
+  margin-top: 3px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.32;
 }
 .sg-recap-meta-val--ligne {
   font-size: 14px; font-weight: 650;
@@ -339,18 +360,19 @@
 
 /* ── Mode selector V3 ── */
 .sg-mode-wrap {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .sg-mode-option {
+  width: 100%;
   border: 1px solid var(--border);
   background: var(--surface2);
   color: var(--text-dim);
   border-radius: 12px;
-  padding: 9px;
+  padding: 15px 14px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   text-align: left;
   font-family: var(--font-body);
@@ -367,14 +389,14 @@
   display: block;
 }
 .sg-mode-title {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 .sg-mode-sub {
-  margin-top: 3px;
-  font-size: 9px;
-  line-height: 1.25;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.35;
   color: var(--muted);
 }
 .sg-mode-option.selected .sg-mode-title { color: var(--text); }
@@ -382,7 +404,7 @@
 
 /* ── Send button V3 ── */
 .sg-btn-send-v3 {
-  width: 100%; padding: 13px;
+  width: 100%; padding: 15px;
   background: var(--orange);
   border: none; border-radius: 12px;
   color: #fff; font-size: 15px; font-weight: 650;
@@ -393,6 +415,10 @@
   transition: opacity var(--t-fast);
 }
 .sg-btn-send-v3:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#sg-step-3 .sg-btn-send-v3 {
+  margin-top: 10px;
+}
 
 .sg-step-nav {
   display: flex;

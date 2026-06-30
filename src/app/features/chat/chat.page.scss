@@ -4,7 +4,7 @@
 
 .chat-screen {
   position: absolute;
-  inset: 0;
+  inset: calc(50px + env(safe-area-inset-top)) 0 0;
   display: flex;
   flex-direction: column;
 }
@@ -67,7 +67,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 16px 14px calc(var(--nav-h, 72px) + 16px);
+  padding: 16px 14px calc(var(--nav-h, 72px) + 28px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -156,7 +156,7 @@
 .chat-composer {
   display: flex;
   align-items: center;
-  padding: 10px 14px calc(10px + var(--nav-h, 72px));
+  padding: 10px 14px calc(var(--nav-h, 72px) + 24px + env(safe-area-inset-bottom));
   background: var(--bg);
   border-top: 1px solid var(--border);
   flex-shrink: 0;

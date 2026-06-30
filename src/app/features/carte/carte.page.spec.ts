@@ -196,7 +196,7 @@ describe('CartePage', () => {
     expect(component.getBuses).not.toHaveBeenCalled();
   }));
 
-  it('should handle db_error explicitly and clear markers', fakeAsync(() => {
+  it('should treat db_error as an empty community state and clear markers', fakeAsync(() => {
     apiServiceSpy.getBuses.and.returnValue(of({ buses: [], total: 0, timestamp: '', error: 'db_error' }));
 
     const fixture = TestBed.createComponent(CartePage);
@@ -205,7 +205,7 @@ describe('CartePage', () => {
     component.ionViewDidEnter();
     tick(250);
 
-    expect(component.error()).toBe('db_error');
+    expect(component.error()).toBeNull();
     expect(component.activeBuses().length).toBe(0);
     expect(component['busMarkers'].size).toBe(0);
     
@@ -213,7 +213,7 @@ describe('CartePage', () => {
   }));
 
   it('should handle HTTP error gracefully', fakeAsync(() => {
-    spyOn(console, 'error');
+    spyOn(console, 'warn');
     storeService.activeBuses.set([
       {
         ligne: '4',
@@ -245,7 +245,7 @@ describe('CartePage', () => {
     component.ionViewDidEnter();
     tick(250);
 
-    expect(component.error()).toBe('Impossible de charger les positions des bus.');
+    expect(component.error()).toBeNull();
     expect(component.activeBuses().length).toBe(0);
     
     component.ionViewDidLeave();
@@ -304,6 +304,42 @@ describe('CartePage', () => {
     
     component.ionViewDidLeave();
   }));
+
+  it('should select the bus card when filtering by line chip, like the dashboard', () => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+    const bus: Bus = {
+      ligne: '4',
+      lat: 14.65,
+      lon: -17.35,
+      direction: 'aller',
+      arret_signale: 'Fann',
+      arret_estime: 'Fann',
+      minutes_depuis_signalement: 2,
+      mode: 'vu',
+      au_terminus: false,
+      repart_dans_min: null,
+      confiance: { niveau: 'vert', tone: 'success', icon: 'signal-live', label: 'Bon' },
+      confidence_level: 'high',
+      confidence_score: 90,
+      confidence_reason: '',
+      confirmation_count: 1,
+      direction_confidence: 'high',
+      trace_progress: null,
+      next_stops_eta: [],
+      eta_disabled_reason: null
+    };
+
+    storeService.activeBuses.set([bus]);
+
+    component.setFilter('4');
+    expect(component.activeFilter()).toBe('4');
+    expect(component.selectedBusKey()).toBe('4');
+
+    component.setFilter('4');
+    expect(component.activeFilter()).toBeNull();
+    expect(component.selectedBusKey()).toBeNull();
+  });
 
   it('should not destroy map on ionViewDidLeave, but should destroy it on ngOnDestroy', fakeAsync(() => {
     const fixture = TestBed.createComponent(CartePage);
@@ -378,7 +414,7 @@ describe('CartePage', () => {
     expect(component.escapeHtml('4<script>"x"&</script>')).toBe('4&lt;script&gt;&quot;x&quot;&amp;&lt;/script&gt;');
   });
 
-  it('should expose the API error as the priority bus-list state', fakeAsync(() => {
+  it('should not expose API errors in the user-facing bus-list state', fakeAsync(() => {
     apiServiceSpy.getBuses.and.returnValue(of({ buses: [], total: 0, timestamp: '', error: 'db_error' }));
     const fixture = TestBed.createComponent(CartePage);
     const component = fixture.componentInstance;
@@ -388,8 +424,9 @@ describe('CartePage', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).toContain('db_error');
-    expect(text).not.toContain('Aucun bus actif. Le dernier signal');
+    expect(text).not.toContain('db_error');
+    expect(text).not.toContain('Réessayer');
+    expect(text).toContain('Aucun bus actif. Le dernier signal');
 
     component.ionViewDidLeave();
   }));
@@ -456,6 +493,19 @@ describe('CartePage', () => {
 
     component.ionViewDidLeave();
   }));
+
+  it('should color bus freshness green until 3 minutes, yellow until 5, then red', () => {
+    const fixture = TestBed.createComponent(CartePage);
+    const component = fixture.componentInstance;
+
+    expect(component.freshnessColor(3)).toBe('#00D67F');
+    expect(component.freshnessColor(4)).toBe('#FFD166');
+    expect(component.freshnessColor(5)).toBe('#FFD166');
+    expect(component.freshnessColor(6)).toBe('#FF4757');
+    expect(component.getFreshnessClass(3)).toBe('age-fresh');
+    expect(component.getFreshnessClass(4)).toBe('age-ok');
+    expect(component.getFreshnessClass(6)).toBe('age-old');
+  });
 
   it('should cycle panel height when togglePanel is called', fakeAsync(() => {
     const fixture = TestBed.createComponent(CartePage);

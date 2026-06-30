@@ -128,6 +128,49 @@
   }
 }
 
+.leaflet-control-zoom-group {
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 15, 30, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+
+  button {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 0.12s ease;
+
+    svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:active {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  .leaflet-control-zoom-sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 4px;
+  }
+}
+
 /* ── Overlay "Position détectée" / 0 bus ── */
 .map-empty-overlay {
   position: absolute;
@@ -321,21 +364,41 @@
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 10px 12px;
+  padding: var(--space-md);
   cursor: pointer;
   transition: border-color var(--t-fast);
   animation: slideUp 0.25s ease both;
+}
 
-  &:active {
-    border-color: var(--orange-border);
-  }
+.bus-card--selected {
+  border-color: var(--orange);
+  background: var(--surface2);
+}
+
+.bus-card--compact {
+  padding: 10px 12px;
+}
+
+.bus-card--compact .bus-card-header {
+  margin-bottom: 4px;
+}
+
+.bus-card--compact .bus-position {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bus-card--compact .bus-meta-row,
+.bus-card--compact .bus-status,
+.bus-card--compact .bus-stops-preview {
+  display: none;
 }
 
 .bus-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .bus-badge {
@@ -374,8 +437,106 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.bus-meta-row,
+.bus-reporter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+
+.bus-meta-row {
+  margin-top: 6px;
+  justify-content: space-between;
   color: var(--muted);
+}
+
+.bus-meta-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bus-confidence {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bus-confidence--success { color: var(--green); background: var(--green-dim); }
+.bus-confidence--warning { color: var(--yellow); background: var(--yellow-dim); }
+.bus-confidence--danger { color: var(--red); background: var(--red-dim); }
+
+.bus-status {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.bus-status-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.bus-status-message {
+  color: var(--muted);
+}
+
+.bus-status--success { border-color: var(--green); }
+.bus-status--warning { border-color: var(--yellow); }
+.bus-status--danger { border-color: var(--red); }
+
+.bus-stops-preview {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.bus-stops-title {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.bus-stops-list {
+  display: grid;
+  gap: 7px;
+}
+
+.bus-stop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bus-stop-item--current {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bus-stop-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--orange);
+  flex: 0 0 auto;
 }
 
 /* ── Leaderboard cards ── */

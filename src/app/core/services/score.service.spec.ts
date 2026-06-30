@@ -6,6 +6,7 @@ describe('ScoreService', () => {
 
   beforeEach(() => {
     localStorage.removeItem('xetu_score');
+    localStorage.removeItem('xetu_score_recorded_ids');
     TestBed.configureTestingModule({
       providers: [ScoreService]
     });
@@ -14,6 +15,7 @@ describe('ScoreService', () => {
 
   afterEach(() => {
     localStorage.removeItem('xetu_score');
+    localStorage.removeItem('xetu_score_recorded_ids');
   });
 
   it('should initialize from localStorage with a zero fallback', () => {
@@ -22,7 +24,15 @@ describe('ScoreService', () => {
   });
 
   it('should increment by one and persist the score', () => {
-    service.increment();
+    expect(service.increment()).toBeTrue();
+
+    expect(service.points()).toBe(1);
+    expect(localStorage.getItem('xetu_score')).toBe('1');
+  });
+
+  it('should dedupe recorded report ids', () => {
+    expect(service.increment('report-1')).toBeTrue();
+    expect(service.increment('report-1')).toBeFalse();
 
     expect(service.points()).toBe(1);
     expect(localStorage.getItem('xetu_score')).toBe('1');

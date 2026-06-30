@@ -47,6 +47,7 @@ export class MesLignesPage implements OnInit, OnDestroy {
 
   private onlineListener: any = null;
   private offlineListener: any = null;
+  private scoreListener: any = null;
 
   constructor(
     private apiService: ApiService,
@@ -63,6 +64,7 @@ export class MesLignesPage implements OnInit, OnDestroy {
 
     // 2. Register online/offline listeners
     this.registerNetworkListeners();
+    this.registerScoreListener();
 
     // 3. Ensure session is active, then sync
     try {
@@ -82,6 +84,13 @@ export class MesLignesPage implements OnInit, OnDestroy {
     if (this.offlineListener) {
       window.removeEventListener('offline', this.offlineListener);
     }
+    if (this.scoreListener) {
+      window.removeEventListener('xetu-score-updated', this.scoreListener);
+    }
+  }
+
+  ionViewDidEnter() {
+    this.scoreService.refresh();
   }
 
   private registerNetworkListeners() {
@@ -96,6 +105,11 @@ export class MesLignesPage implements OnInit, OnDestroy {
 
     window.addEventListener('online', this.onlineListener);
     window.addEventListener('offline', this.offlineListener);
+  }
+
+  private registerScoreListener() {
+    this.scoreListener = () => this.scoreService.refresh();
+    window.addEventListener('xetu-score-updated', this.scoreListener);
   }
 
   private async syncAfterOnline() {
@@ -363,8 +377,7 @@ export class MesLignesPage implements OnInit, OnDestroy {
         onSubscribe: (ligne: string) => this.subscribe(ligne),
         onUnsubscribe: (ligne: string) => this.unsubscribe(ligne)
       },
-      breakpoints: [0, 0.5],
-      initialBreakpoint: 0.5
+      cssClass: 'subscribe-sheet-modal'
     });
 
     await modal.present();

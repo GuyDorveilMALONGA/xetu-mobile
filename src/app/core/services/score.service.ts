@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 const STORAGE_KEY = 'xetu_score';
+const RECORDED_IDS_KEY = 'xetu_score_recorded_ids';
 
 export interface ScoreBadge {
   label: string;
@@ -36,12 +37,28 @@ export class ScoreService {
    * confirme un signalement réellement nouveau (status === 'recorded'),
    * jamais sur un doublon idempotent (status === 'already_recorded').
    */
-  increment(): void {
+  refresh(): void {
+    this.points.set(this.readScore());
+  }
+
+  increment(reportId?: string): boolean {
     try {
+      if (reportId && this.hasRecordedId(reportId)) {
+        this.refresh();
+        return false;
+      }
+
       const next = this.readScore() + 1;
       localStorage.setItem(STORAGE_KEY, String(next));
+      if (reportId) {
+        this.storeRecordedId(reportId);
+      }
       this.points.set(next);
-    } catch {}
+      window.dispatchEvent(new CustomEvent('xetu-score-updated', { detail: { points: next } }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getBadge(points: number): ScoreBadge {
@@ -54,5 +71,24 @@ export class ScoreService {
 
   getNextBadge(points: number): ScoreBadge | null {
     return SCORE_BADGES.find(b => b.min > points) ?? null;
+  }
+
+  private readRecordedIds(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem(RECORDED_IDS_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  private hasRecordedId(reportId: string): boolean {
+    return this.readRecordedIds().includes(reportId);
+  }
+
+  private storeRecordedId(reportId: string): void {
+    const ids = this.readRecordedIds();
+    if (ids.includes(reportId)) return;
+    ids.push(reportId);
+    localStorage.setItem(RECORDED_IDS_KEY, JSON.stringify(ids.slice(-100)));
   }
 }

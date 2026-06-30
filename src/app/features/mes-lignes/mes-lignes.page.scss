@@ -4,14 +4,14 @@
 
 .mylines-body-wrap {
   position: absolute;
-  inset: 0;
+  inset: calc(50px + env(safe-area-inset-top)) 0 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
 .mylines-body {
-  padding: 16px 16px calc(var(--nav-h, 72px) + 16px);
+  padding: 16px 16px calc(var(--nav-h, 72px) + 34px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 0;

@@ -6,10 +6,18 @@ import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
 import { ScoreService } from '../../core/services/score.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
+import { XetuMvpData } from '../../core/models/models';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { firstValueFrom, Subject, Subscription, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import * as L from 'leaflet';
+
+interface LineStopOption {
+  name: string;
+  lat: number | null;
+  lon: number | null;
+  aliases: string[];
+}
 
 @Component({
   selector: 'app-signalement-modal',
@@ -30,7 +38,6 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   selectedLigne = signal<string>('');
   selectedArret = signal<string>('');
   mode = signal<'vu' | 'dedans'>('vu');
-  observation = '';
   selectedTags = signal<string[]>([]);
 
   // Ligne Search
@@ -54,10 +61,15 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   searchQuery = '';
   searchResults = signal<string[]>([]);
   isSearchLoading = signal<boolean>(false);
+  lineStops = signal<LineStopOption[]>([]);
+  lineStopsLoading = signal<boolean>(false);
+  lineStopsError = signal<string>('');
+  isStopInputFocused = signal<boolean>(false);
 
   // States
   isSubmitting = signal<boolean>(false);
   showSuccess = signal<boolean>(false);
+  submitNotice = signal<string>('');
   rateLimitCountdown = signal<number>(0);
   scoreTotal = signal<number>(0);
   isNewReportRecorded = false;
@@ -112,10 +124,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   private async checkLocationAndFetchNearby() {
     this.isGpsLoading.set(true);
     try {
-      const coordinates = await this.geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 5000
-      });
+      const coordinates = await this.getCurrentPosition();
 
       const lat = coordinates.coords.latitude;
       const lon = coordinates.coords.longitude;
@@ -142,10 +151,43 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async getCurrentPosition(): Promise<{ coords: { latitude: number; longitude: number } }> {
+    try {
+      return await this.geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 5000
+      });
+    } catch (capacitorError) {
+      if (!navigator.geolocation) {
+        throw capacitorError;
+      }
+
+      return await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve(position),
+          (browserError) => reject(browserError),
+          { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }
+        );
+      });
+    }
+  }
+
   onSearchInput(event: Event) {
     const val = (event.target as HTMLInputElement).value;
     this.searchQuery = val;
+    this.isStopInputFocused.set(true);
     this.searchSubject.next(val);
+  }
+
+  onSearchFocus() {
+    this.isStopInputFocused.set(true);
+    if (this.selectedLigne() && this.lineStops().length === 0 && !this.lineStopsLoading()) {
+      this.loadLineStops(this.selectedLigne());
+    }
+  }
+
+  onSearchBlur() {
+    setTimeout(() => this.isStopInputFocused.set(false), 150);
   }
 
   onLigneSearchChange(value: string) {
@@ -154,6 +196,10 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
 
   selectLigne(ligne: string) {
     this.selectedLigne.set(ligne);
+    this.selectedArret.set('');
+    this.searchQuery = '';
+    this.searchResults.set([]);
+    this.loadLineStops(ligne);
     this.step.set(2);
     this.initMap();
   }
@@ -164,8 +210,15 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
 
     this.selectedArret.set(normalized);
     this.searchQuery = '';
+    this.isStopInputFocused.set(false);
     this.destroyMap();
     this.step.set(3);
+  }
+
+  selectArretSuggestion(arret: string, event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectArret(arret);
   }
 
   goBack() {
@@ -194,6 +247,8 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     if (!this.selectedLigne() || !this.selectedArret()) return;
 
     this.isSubmitting.set(true);
+    this.submitNotice.set('');
+    this.isNewReportRecorded = false;
 
     try {
       // 1. Guarantee session is active
@@ -203,18 +258,10 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       const coords = this.gpsCoords();
       const hasValidGps = coords !== null;
 
-      // Concatenate observation text and quality tags
-      let finalObservation: string | null = null;
-      const obsText = this.observation.trim();
+      // Only controlled quality tags are sent. Free-text comments are intentionally
+      // not collected so users cannot inject uncontrolled report content.
       const tags = this.selectedTags();
-      
-      if (obsText && tags.length > 0) {
-        finalObservation = `${obsText}. Tags: ${tags.join(', ')}`;
-      } else if (obsText) {
-        finalObservation = obsText;
-      } else if (tags.length > 0) {
-        finalObservation = `Tags: ${tags.join(', ')}`;
-      }
+      const finalObservation = tags.length > 0 ? `Tags: ${tags.join(', ')}` : null;
 
       const payload: any = {
         ligne: this.selectedLigne(),
@@ -232,18 +279,19 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       // 3. Submit report
       const res = await firstValueFrom(this.apiService.reportBus(payload));
 
-      // 4. Treat both recorded and already_recorded as success, but only
+      // 4. Dashboard parity: only a genuinely recorded report is a success.
       // increment the score on a genuinely new report — never on an
-      // idempotent duplicate (status === 'already_recorded').
-      if (res && (res.status === 'already_recorded' || ('id' in res && res.status === 'recorded'))) {
-        if (res.status === 'recorded') {
-          this.scoreService.increment();
-          this.isNewReportRecorded = true;
-        }
+      // already_recorded is not visible as a new bus and must not award points.
+      if (res && 'id' in res && res.status === 'recorded') {
+        this.scoreService.increment(res.id);
+        this.isNewReportRecorded = true;
         this.scoreTotal.set(this.scoreService.points());
         this.step.set(4);
         this.showSuccess.set(true);
         // Do NOT automatically dismiss. Let the user click "Retour à la carte"
+      } else if (res && res.status === 'already_recorded') {
+        this.scoreTotal.set(this.scoreService.points());
+        this.submitNotice.set('Signalement non ajoute : deja recent ou position GPS insuffisante. Aucun point ajoute.');
       } else {
         throw new Error('Invalid response from report server');
       }
@@ -307,7 +355,143 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   manualStopLabel(): string {
-    return this.searchQuery.trim();
+    return this.findResolvableLineStop(this.searchQuery)?.name || '';
+  }
+
+  nearbyTitle(): string {
+    return 'Arrêts proches de vous';
+  }
+
+  lineStopSuggestions(): LineStopOption[] {
+    const query = this.searchQuery.trim();
+    const stops = this.lineStops();
+    if (!query) {
+      return stops.slice(0, 8);
+    }
+    return stops.filter((stop) => this.lineStopMatches(stop, query)).slice(0, 8);
+  }
+
+  stopSuggestions(): string[] {
+    const lineStops = this.lineStopSuggestions().map((stop) => stop.name);
+
+    if (this.lineStops().length > 0) {
+      return this.uniqueStopNames(lineStops);
+    }
+
+    return this.uniqueStopNames(this.searchResults());
+  }
+
+  showStopDropdown(): boolean {
+    return this.isStopInputFocused() && this.stopSuggestions().length > 0;
+  }
+
+  shouldChooseSuggestedStop(): boolean {
+    return this.searchQuery.trim().length >= 2 && !this.manualStopLabel() && this.lineStops().length > 0;
+  }
+
+  private async loadLineStops(ligne: string) {
+    this.lineStopsLoading.set(true);
+    this.lineStopsError.set('');
+    this.lineStops.set([]);
+
+    try {
+      const data = await firstValueFrom(this.apiService.getLocalStopsIndex());
+      const stops = this.extractLineStops(data, ligne);
+      this.lineStops.set(stops);
+
+      if (stops.length === 0) {
+        this.lineStopsError.set(`Aucun arrêt embarqué trouvé pour la ligne ${ligne}.`);
+      }
+    } catch (err) {
+      console.warn('Could not load local line stops for signalement:', err);
+      this.lineStopsError.set('Impossible de charger les arrêts de cette ligne.');
+    } finally {
+      this.lineStopsLoading.set(false);
+    }
+  }
+
+  private extractLineStops(data: XetuMvpData, ligne: string): LineStopOption[] {
+    const line = data.lignes?.[ligne];
+    const rawStops = [...(line?.arrets || []), ...(line?.arrets_retour || [])];
+    const seen = new Set<string>();
+    const stops: LineStopOption[] = [];
+
+    for (const stop of rawStops) {
+      const key = this.normalizeStopText(stop.nom);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      stops.push({
+        name: stop.nom,
+        lat: stop.lat ?? null,
+        lon: stop.lon ?? null,
+        aliases: stop.aliases_terrain || []
+      });
+    }
+
+    return stops;
+  }
+
+  private findResolvableLineStop(query: string): LineStopOption | null {
+    const trimmed = query.trim();
+    if (!trimmed) return null;
+
+    const stops = this.lineStops();
+    if (stops.length === 0) {
+      return null;
+    }
+
+    const matches = stops.filter((stop) => this.lineStopMatches(stop, trimmed));
+    const officialExact = matches.find((stop) => this.isSameStopText(stop.name, trimmed));
+
+    if (officialExact) {
+      return officialExact;
+    }
+
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  private lineStopMatches(stop: LineStopOption, query: string): boolean {
+    const normalizedQuery = this.normalizeStopText(query);
+    const looseQuery = this.normalizeStopTextLoose(query);
+    if (!normalizedQuery) return true;
+
+    return [stop.name, ...stop.aliases].some((term) => {
+      const normalizedTerm = this.normalizeStopText(term);
+      const looseTerm = this.normalizeStopTextLoose(term);
+      return normalizedTerm.includes(normalizedQuery) || looseTerm.includes(looseQuery);
+    });
+  }
+
+  private isSameStopText(left: string, right: string): boolean {
+    return this.normalizeStopText(left) === this.normalizeStopText(right)
+      || this.normalizeStopTextLoose(left) === this.normalizeStopTextLoose(right);
+  }
+
+  private normalizeStopText(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  private normalizeStopTextLoose(value: string): string {
+    return this.normalizeStopText(value).replace(/(.)\1+/g, '$1');
+  }
+
+  private uniqueStopNames(names: string[]): string[] {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+
+    for (const name of names) {
+      const key = this.normalizeStopText(name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(name);
+    }
+
+    return unique.slice(0, 8);
   }
 
   private initMap() {
