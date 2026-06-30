@@ -532,7 +532,7 @@
 .itineraire-content,
 .chat-content,
 .mylines-content {
-  --padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  --padding-bottom: calc(104px + env(safe-area-inset-bottom));
 }
 
 ion-modal.subscribe-sheet-modal {

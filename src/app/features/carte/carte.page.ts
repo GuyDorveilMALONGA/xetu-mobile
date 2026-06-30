@@ -6,7 +6,7 @@ import { StoreService } from '../../core/services/store.service';
 import { SessionService } from '../../core/services/session.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
 import { GeolocationPlugin } from '@capacitor/geolocation';
-import { Bus, LeaderboardResponse } from '../../core/models/models';
+import { Bus, LeaderboardResponse, XetuMvpData } from '../../core/models/models';
 import { firstValueFrom } from 'rxjs';
 import * as L from 'leaflet';
 import { ModalController } from '@ionic/angular/standalone';
@@ -28,6 +28,9 @@ export class CartePage implements OnInit, OnDestroy {
   private busMarkers = new Map<string, L.Marker>();
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private welcomeShown = false;
+  private routesIndex: XetuMvpData['lignes'] | null = null;
+  private activeLinePolyline: L.Polyline | null = null;
+  private activeLineStopMarkers: L.CircleMarker[] = [];
 
   // State signals
   activeBuses = this.storeService.activeBuses;
@@ -242,9 +245,10 @@ export class CartePage implements OnInit, OnDestroy {
     }
   }
 
-  setFilter(line: string | null) {
+  async setFilter(line: string | null) {
     const nextFilter = this.activeFilter() === line ? null : line;
     this.activeFilter.set(nextFilter);
+    this.clearActiveLine();
 
     if (!nextFilter) {
       this.selectedBusKey.set(null);
@@ -254,7 +258,8 @@ export class CartePage implements OnInit, OnDestroy {
       if (bus) {
         this.selectedBusKey.set(bus.ligne);
         this.updateBusMarkers(this.activeBuses());
-        if (this.map) {
+        const drawn = await this.drawLineGeometry(bus.ligne);
+        if (!drawn && this.map) {
           this.map.setView([bus.lat, bus.lon], 16, { animate: false });
         }
       }
@@ -299,6 +304,7 @@ export class CartePage implements OnInit, OnDestroy {
    */
   private destroyMap() {
     this.clearBusMarkers();
+    this.clearActiveLine();
     if (this.userMarker && this.map) {
       this.userMarker.remove();
       this.userMarker = null;
@@ -357,7 +363,7 @@ export class CartePage implements OnInit, OnDestroy {
     this.welcomeShown = true;
 
     try {
-      const sessionId = this.sessionService.getSessionId() || undefined;
+      const { sessionId } = await this.sessionService.ensureSession();
       const nearby = await firstValueFrom(this.apiService.getNearby(lat, lon, sessionId));
       const first = nearby.stops?.[0];
       const allLines: string[] = ([] as string[]).concat(...(nearby.stops || []).map(s => s.lignes || []));
@@ -543,13 +549,79 @@ export class CartePage implements OnInit, OnDestroy {
     }
   }
 
-  selectBus(bus: Bus) {
+  async selectBus(bus: Bus) {
     const key = bus.ligne;
-    this.selectedBusKey.set(this.selectedBusKey() === key ? null : key);
+    const wasSelected = this.selectedBusKey() === key;
+    this.selectedBusKey.set(wasSelected ? null : key);
     this.updateBusMarkers(this.activeBuses());
-    if (this.map) {
+    this.clearActiveLine();
+
+    if (wasSelected) {
+      return;
+    }
+
+    const drawn = await this.drawLineGeometry(bus.ligne);
+    if (!drawn && this.map) {
       this.map.setView([bus.lat, bus.lon], 16, { animate: false });
     }
+  }
+
+  /**
+   * Charge l'index local des lignes (assets/data/xetu_mvp.json, déjà bundlé)
+   * et trace le polyline + les arrêts de la ligne sélectionnée, comme le Dashboard.
+   */
+  private async drawLineGeometry(ligne: string): Promise<boolean> {
+    if (!this.map) return false;
+
+    try {
+      if (!this.routesIndex) {
+        const data = await firstValueFrom(this.apiService.getLocalStopsIndex());
+        this.routesIndex = data.lignes || {};
+      }
+
+      const lineRaw = this.routesIndex[ligne];
+      if (!lineRaw) return false;
+
+      const trace = (lineRaw.geometry_aller || []).map(([lon, lat]) => [lat, lon] as L.LatLngTuple);
+      const arrets = lineRaw.arrets || [];
+      if (trace.length < 2) return false;
+
+      const color = this.hashColor(ligne);
+      this.activeLinePolyline = L.polyline(trace, {
+        color, weight: 4, opacity: 0.88, lineJoin: 'round', lineCap: 'round'
+      }).addTo(this.map);
+
+      arrets.forEach((stop, idx) => {
+        if (!stop.lat || !stop.lon || !this.map) return;
+        const isTerminus = idx === 0 || idx === arrets.length - 1;
+        const circle = L.circleMarker([stop.lat, stop.lon], {
+          radius: isTerminus ? 4 : 2,
+          color: isTerminus ? color : 'rgba(255,255,255,0.2)',
+          weight: 1,
+          fillColor: isTerminus ? color : 'rgba(255,255,255,0.1)',
+          fillOpacity: 1,
+          interactive: false
+        }).addTo(this.map);
+        this.activeLineStopMarkers.push(circle);
+      });
+
+      this.map.fitBounds(this.activeLinePolyline.getBounds(), { padding: [40, 40], maxZoom: 14 });
+      return true;
+    } catch (err) {
+      console.warn('Tracé de ligne indisponible:', err);
+      return false;
+    }
+  }
+
+  private clearActiveLine() {
+    if (this.activeLinePolyline && this.map) {
+      this.map.removeLayer(this.activeLinePolyline);
+    }
+    this.activeLinePolyline = null;
+    for (const marker of this.activeLineStopMarkers) {
+      marker.remove();
+    }
+    this.activeLineStopMarkers = [];
   }
 
   isBusSelected(bus: Bus): boolean {

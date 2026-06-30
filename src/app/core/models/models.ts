@@ -192,7 +192,7 @@ export interface ReportRequest {
 
 export type ReportResponse =
   | { id: string; status: 'recorded' }
-  | { status: 'already_recorded' };
+  | { status: 'already_recorded' | 'rejected_spam' | 'rejected_distance' | 'rejected_low_confidence' | 'record_failed' };
 
 // stops.model.ts
 export interface StopsSearchResponse {
@@ -221,6 +221,8 @@ export interface XetuMvpData {
     terminus_b?: string;
     arrets?: Array<{ nom: string; lat: number; lon: number; aliases_terrain?: string[] }>;
     arrets_retour?: Array<{ nom: string; lat: number; lon: number; aliases_terrain?: string[] }>;
+    geometry_aller?: Array<[number, number]>;
+    geometry_retour?: Array<[number, number]>;
   }>;
 }
 

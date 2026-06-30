@@ -2,7 +2,7 @@
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 14px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   height: 56px; /* 72px visuels avec padding Ionic en content-box */
   min-height: 56px;
   max-height: 56px;

@@ -289,9 +289,9 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
         this.step.set(4);
         this.showSuccess.set(true);
         // Do NOT automatically dismiss. Let the user click "Retour à la carte"
-      } else if (res && res.status === 'already_recorded') {
+      } else if (res && res.status) {
         this.scoreTotal.set(this.scoreService.points());
-        this.submitNotice.set('Signalement non ajoute : deja recent ou position GPS insuffisante. Aucun point ajoute.');
+        this.submitNotice.set(this.noticeForStatus(res.status));
       } else {
         throw new Error('Invalid response from report server');
       }
@@ -329,6 +329,22 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       }
     } finally {
       this.isSubmitting.set(false);
+    }
+  }
+
+  private noticeForStatus(status: string): string {
+    switch (status) {
+      case 'rejected_distance':
+        return 'Signalement non ajoute : ta position GPS est trop loin de cet arret. Aucun point ajoute.';
+      case 'rejected_low_confidence':
+        return 'Signalement non ajoute : confiance insuffisante (verifie ligne et arret). Aucun point ajoute.';
+      case 'rejected_spam':
+        return 'Signalement non ajoute : trop de signalements recents. Aucun point ajoute.';
+      case 'record_failed':
+        return 'Signalement non enregistre suite a une erreur serveur. Reessaie dans un instant.';
+      case 'already_recorded':
+      default:
+        return 'Signalement non ajoute : deja recent. Aucun point ajoute.';
     }
   }
 

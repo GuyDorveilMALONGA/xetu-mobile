@@ -13,6 +13,7 @@
 
 .signal-step-scroll {
   --background: var(--bg);
+  --padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
 }
 
