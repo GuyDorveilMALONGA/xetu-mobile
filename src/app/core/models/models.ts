@@ -194,6 +194,17 @@ export type ReportResponse =
   | { id: string; status: 'recorded' }
   | { status: 'already_recorded' | 'rejected_spam' | 'rejected_distance' | 'rejected_low_confidence' | 'record_failed' };
 
+export interface TrackingRelanceRequest {
+  ligne: string;
+}
+
+export interface TrackingRelanceResponse {
+  status: 'sent' | 'fresh_enough' | 'cooldown' | 'no_dedans_signalement' | 'no_contact' | 'send_failed';
+  age_min?: number;
+  retry_after_sec?: number;
+  channels?: { whatsapp?: boolean; push?: boolean };
+}
+
 // stops.model.ts
 export interface StopsSearchResponse {
   stops: Array<{
@@ -213,6 +224,20 @@ export interface StopsSearchResponse {
 }
 
 // Local bundled assets (src/assets/data) — Itinéraire local index enrichment (Étape 3b)
+export interface XetuMvpQuartier {
+  nom: string;
+  lat: number;
+  lng: number;
+  zone?: string;
+  lignes: string[];
+  arrets_proches?: Array<{
+    stop_id?: string;
+    nom: string;
+    ligne: string;
+    distance_m: number;
+  }>;
+}
+
 export interface XetuMvpData {
   lignes: Record<string, {
     numero?: string;
@@ -224,6 +249,7 @@ export interface XetuMvpData {
     geometry_aller?: Array<[number, number]>;
     geometry_retour?: Array<[number, number]>;
   }>;
+  quartiers?: XetuMvpQuartier[];
 }
 
 export interface SecteursDakarData {
@@ -251,4 +277,51 @@ export interface ChatMessage {
   role: 'user' | 'bot';
   text: string;
   time: string;
+}
+
+export interface TrackingSessionStartRequest {
+  phone: string;
+  ligne: string;
+  direction: string | null;
+  consent: boolean;
+}
+
+export interface TrackingSessionStartResponse {
+  status: 'ok' | 'consent_required' | 'db_error' | string;
+  session_id?: string;
+}
+
+export interface TrackingSessionPingRequest {
+  session_id: string;
+  phone: string;
+  lat: number;
+  lon: number;
+  accuracy_m: number;
+}
+
+export interface TrackingSessionPingResponse {
+  status: 'ok' | 'no_active_session' | 'unauthorized_session' | 'db_error' | string;
+  ligne?: string;
+  direction?: string;
+  projection_error_m?: number;
+  bus_state?: {
+    lat: number;
+    lon: number;
+    source: string;
+    confidence: string;
+  };
+  bus_event?: {
+    id: string | null;
+    status: string;
+  };
+}
+
+export interface TrackingSessionStopRequest {
+  session_id: string;
+  phone: string;
+  reason: string;
+}
+
+export interface TrackingSessionStopResponse {
+  status: 'ok' | 'db_error' | string;
 }

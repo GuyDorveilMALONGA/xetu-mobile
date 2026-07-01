@@ -93,6 +93,7 @@ expo-env.d.ts
 # Local env files
 .env
 .env*.local
+/src/assets/local/
 
 # Codex / agent scratch
 .codex/

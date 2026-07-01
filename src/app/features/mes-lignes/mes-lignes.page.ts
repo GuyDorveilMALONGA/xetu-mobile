@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonContent, ModalController } from '@ionic/angular/standalone';
 import { ApiService } from '../../core/services/api.service';
@@ -23,6 +23,13 @@ interface PendingOp {
   imports: [CommonModule, IonContent]
 })
 export class MesLignesPage implements OnInit, OnDestroy {
+  private readonly apiService = inject(ApiService);
+  private readonly storeService = inject(StoreService);
+  private readonly sessionService = inject(SessionService);
+  private readonly scoreService = inject(ScoreService);
+  private readonly modalCtrl = inject(ModalController);
+  private readonly preferences = inject(PREFERENCES_TOKEN);
+
   subscriptions = this.storeService.subscriptions;
   isOffline = signal<boolean>(!navigator.onLine);
 
@@ -48,15 +55,6 @@ export class MesLignesPage implements OnInit, OnDestroy {
   private onlineListener: any = null;
   private offlineListener: any = null;
   private scoreListener: any = null;
-
-  constructor(
-    private apiService: ApiService,
-    private storeService: StoreService,
-    private sessionService: SessionService,
-    private scoreService: ScoreService,
-    private modalCtrl: ModalController,
-    @Inject(PREFERENCES_TOKEN) private preferences: PreferencesPlugin
-  ) {}
 
   async ngOnInit() {
     // 1. Load local cache + line names in parallel for instant boot

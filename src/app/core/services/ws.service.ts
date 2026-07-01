@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { SessionService } from './session.service';
 import { StoreService } from './store.service';
@@ -8,6 +8,9 @@ import { WsChatResponse, WsTyping, WsStatus, WsReportAck, WsError } from '../mod
   providedIn: 'root'
 })
 export class WsService {
+  private readonly sessionService = inject(SessionService);
+  private readonly storeService = inject(StoreService);
+
   private ws: WebSocket | null = null;
   private reconnectTry = 0;
   private reconnectTimer: any = null;
@@ -22,11 +25,6 @@ export class WsService {
   private readonly RECONNECT_FACTOR = 1.8;
   private readonly MAX_RECONNECT_TRIES = 10;
   private readonly SESSION_RESET_CODES = new Set([4001, 4002, 4003]);
-
-  constructor(
-    private sessionService: SessionService,
-    private storeService: StoreService
-  ) {}
 
   /**
    * Initializes the WebSocket connection.

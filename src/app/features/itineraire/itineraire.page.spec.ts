@@ -177,6 +177,44 @@ describe('ItinerairePage', () => {
     expect(component.isZoneStop(mamelles)).toBeTrue();
   }));
 
+  it('should surface quartier lines and nearby stops in itinerary search results', fakeAsync(() => {
+    apiServiceSpy.searchStops.and.returnValue(of({ stops: [], total: 0, query: 'Dieuppeul' }));
+    apiServiceSpy.getLocalStopsIndex.and.returnValue(of({
+      lignes: {},
+      quartiers: [
+        {
+          nom: 'Dieuppeul',
+          lat: 14.717,
+          lng: -17.4565,
+          zone: "Presqu'ile",
+          lignes: ['10', '4', '6'],
+          arrets_proches: [
+            { stop_id: 'L6_034', nom: 'Arret Dieuppeul', ligne: '6', distance_m: 71 },
+            { stop_id: 'L4_004', nom: 'Terminus Dieuppeul', ligne: '4', distance_m: 377 }
+          ]
+        }
+      ]
+    }));
+
+    const fixture = TestBed.createComponent(ItinerairePage);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.activateField('from');
+    component.onFieldInput('from', 'Dieuppeul');
+    tick(280);
+    flushMicrotasks();
+    tick();
+    fixture.detectChanges();
+
+    const dieuppeul = component.searchResults()[0];
+    expect(dieuppeul.nom).toBe('Dieuppeul');
+    expect(dieuppeul.type).toBe('zone');
+    expect(dieuppeul.lignes.map((ligne) => ligne.numero)).toEqual(['4', '6', '10']);
+    expect(component.nearbyQuartierStops(dieuppeul).map((stop) => stop.nom)).toEqual(['Arret Dieuppeul', 'Terminus Dieuppeul']);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Arrêts proches');
+  }));
+
   it('should show line results and reinject a selected line without calculating a route', fakeAsync(() => {
     apiServiceSpy.searchStops.and.returnValue(of({ stops: [], total: 0, query: '13' }));
     apiServiceSpy.getLocalStopsIndex.and.returnValue(of({
@@ -323,6 +361,27 @@ describe('ItinerairePage', () => {
       expect(component.stepper().busMain).toBe('Ligne 219 - direct');
       expect(component.stepper().busSub).toBe('4 arrêts');
       expect(component.stepper().duration).toBe('~8 min');
+    }));
+
+    it('keeps direct route alternatives visible instead of collapsing to the first line', fakeAsync(() => {
+      apiServiceSpy.getRoute.and.returnValue(of({
+        status: 'direct',
+        dest_display: 'Sandaga',
+        routes: [
+          { number: '9', name: 'Ligne 9', terminus_a: 'A', terminus_b: 'B', stops: ['Askia', 'Sandaga'], nb_stops: 6, score: 90 },
+          { number: '6', name: 'Ligne 6', terminus_a: 'A', terminus_b: 'B', stops: ['Sonatel', 'Asecna Ville'], nb_stops: 4, score: 92 },
+          { number: '4', name: 'Ligne 4', terminus_a: 'A', terminus_b: 'B', stops: ['Sonatel', 'Arrêt ASECNA'], nb_stops: 5, score: 91 },
+          { number: '9', name: 'Ligne 9', terminus_a: 'A', terminus_b: 'B', stops: ['Askia', 'Sandaga'], nb_stops: 7, score: 80 }
+        ]
+      } as RouteResponse));
+
+      const component = setup();
+      component.calcFromTo('Liberte 4', 'Sandaga');
+      tick();
+
+      expect(component.stepper().busMain).toBe('Lignes 4, 6, 9 - direct');
+      expect(component.stepper().busSub).toBe('Option principale: ligne 4 · 5 arrêts');
+      expect(component.routeDetail()?.lines).toEqual(['4', '6', '9']);
     }));
 
     it('renders a walk_direct route in the stepper', fakeAsync(() => {

@@ -1,5 +1,7 @@
 export const environment = {
   production: false,
   apiBase: '',
-  wsBase: 'wss://web-production-ccab8.up.railway.app'
+  wsBase: 'ws://127.0.0.1:8000',
+  mapStyleUrl: '',
+  mapTilerKey: ''
 };

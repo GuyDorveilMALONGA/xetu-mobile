@@ -127,7 +127,10 @@ function checkEmptyOrBrokenFiles() {
             warnings.push(`Empty file found: ${path.relative(__dirname, fullPath)}`);
           } else {
             // Check for broken patterns (e.g. unreplaced templates, merge conflicts)
-            if (content.includes('<<<<<<<') || content.includes('=======') || content.includes('>>>>>>>')) {
+            const hasConflictMarker = content
+              .split(/\r?\n/)
+              .some(line => /^(<<<<<<<|=======|>>>>>>>)($|\s)/.test(line));
+            if (hasConflictMarker) {
               errors.push(`Merge conflict markers found in: ${path.relative(__dirname, fullPath)}`);
             }
           }

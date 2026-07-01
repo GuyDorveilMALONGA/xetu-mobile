@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalController } from '@ionic/angular/standalone';
@@ -17,6 +17,8 @@ interface LineItem {
   imports: [CommonModule, FormsModule]
 })
 export class SubscribeModalComponent implements OnInit {
+  private readonly modalCtrl = inject(ModalController);
+
   @Input() currentSubscriptions: string[] = [];
   @Input() knownLines: string[] = [];
   @Input() lineNames: Record<string, string> = {};
@@ -26,8 +28,6 @@ export class SubscribeModalComponent implements OnInit {
   searchQuery = '';
   lines: LineItem[] = [];
   filteredLines: LineItem[] = [];
-
-  constructor(private modalCtrl: ModalController) {}
 
   ngOnInit() {
     this.lines = [...this.knownLines]

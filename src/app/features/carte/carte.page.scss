@@ -28,7 +28,7 @@
     background: #dbe6e4 !important;
   }
 
-  /* Custom Leaflet Pulsing User Location Marker */
+  /* Custom pulsing user location marker */
   .user-location-marker {
     background: none;
     border: none;
@@ -66,11 +66,51 @@
     100% { transform: scale(1.6); opacity: 0; }
   }
 
-  /* Marker bus : neutralise les styles Leaflet par défaut (le markup gère tout) */
+  /* Marker bus : the custom markup handles all visual styling */
   .xetu-bus-marker {
     background: none !important;
     border: none !important;
     box-shadow: none !important;
+  }
+
+  .xetu-line-endpoint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 7px 4px 4px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: rgba(10, 15, 30, 0.9);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .xetu-line-endpoint__pin {
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #13c978;
+    color: #062414;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .xetu-line-endpoint--arrivee .xetu-line-endpoint__pin {
+    background: #ff4757;
+    color: #fff;
+  }
+
+  .xetu-line-endpoint__label {
+    padding-right: 2px;
   }
 }
 

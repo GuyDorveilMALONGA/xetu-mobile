@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed, Inject, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonContent, ModalController, ToastController } from '@ionic/angular/standalone';
@@ -6,18 +6,23 @@ import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
 import { ScoreService } from '../../core/services/score.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
-import { XetuMvpData } from '../../core/models/models';
+import { MAPLIBRE_FACTORY_TOKEN, MAPLIBRE_MARKER_FACTORY_TOKEN, MapLibreFactory, MapLibreMarkerFactory } from '../../core/services/maplibre.token';
+import { MapStyleService } from '../../core/services/map-style.service';
+import { XetuMvpData, ReportRequest, TrackingSessionStartRequest, TrackingSessionPingRequest, TrackingSessionStopRequest } from '../../core/models/models';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { firstValueFrom, Subject, Subscription, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
-import * as L from 'leaflet';
+import maplibregl, { Map as MapLibreMap, Marker } from 'maplibre-gl';
 
 interface LineStopOption {
   name: string;
   lat: number | null;
   lon: number | null;
   aliases: string[];
+  dist?: number;
 }
+
+type NearbyStopView = { name: string; dist?: number; source: 'gps' | 'line' };
 
 @Component({
   selector: 'app-signalement-modal',
@@ -31,6 +36,16 @@ interface LineStopOption {
   ]
 })
 export class SignalementModalComponent implements OnInit, OnDestroy {
+  private readonly modalCtrl = inject(ModalController);
+  private readonly apiService = inject(ApiService);
+  private readonly sessionService = inject(SessionService);
+  private readonly scoreService = inject(ScoreService);
+  private readonly mapStyleService = inject(MapStyleService);
+  private readonly toastCtrl = inject(ToastController);
+  private readonly geolocation = inject(GEOLOCATION_TOKEN);
+  private readonly createMap = inject(MAPLIBRE_FACTORY_TOKEN);
+  private readonly createMarker = inject(MAPLIBRE_MARKER_FACTORY_TOKEN);
+
   // Whitelisted MVP lines validated by the backend
   readonly mvpLines = ['1', '4', '6', '7', '8', '9', '10', '13', '23', '232'];
 
@@ -39,6 +54,14 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   selectedArret = signal<string>('');
   mode = signal<'vu' | 'dedans'>('vu');
   selectedTags = signal<string[]>([]);
+
+  // Snapped info
+  nearestStopName = signal<string | null>(null);
+  nearestStopDist = signal<number | null>(null);
+  detectedSens = signal<'aller' | 'retour' | null>(null);
+  manualSens = signal<'aller' | 'retour' | null>(null);
+  lineTerminusA = signal<string>('Terminus A');
+  lineTerminusB = signal<string>('Terminus B');
 
   // Ligne Search
   ligneSearchQuery = signal<string>('');
@@ -51,11 +74,11 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   // GPS / Nearby Stops
   gpsCoords = signal<{ lat: number; lon: number } | null>(null);
   isGpsLoading = signal<boolean>(false);
-  nearbyStops = signal<{ name: string; dist?: number }[]>([]);
+  nearbyStops = signal<NearbyStopView[]>([]);
 
-  // Leaflet map inside wizard
-  private map: L.Map | null = null;
-  private userMarker: L.Marker | null = null;
+  // MapLibre map inside wizard
+  private map: MapLibreMap | null = null;
+  private userMarker: Marker | null = null;
 
   // Search Stops
   searchQuery = '';
@@ -65,6 +88,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   lineStopsLoading = signal<boolean>(false);
   lineStopsError = signal<string>('');
   isStopInputFocused = signal<boolean>(false);
+  locationStatus = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'outside'>('idle');
 
   // States
   isSubmitting = signal<boolean>(false);
@@ -74,18 +98,16 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   scoreTotal = signal<number>(0);
   isNewReportRecorded = false;
 
+  // Tracking State
+  trackingStatus = signal<'inactive' | 'starting' | 'active'>('inactive');
+  trackingSessionId = signal<string | null>(null);
+  trackingError = signal<string | null>(null);
+  private trackingInterval: ReturnType<typeof setInterval> | null = null;
+
   private countdownInterval: any = null;
   private searchSubject = new Subject<string>();
   private searchSubscription = new Subscription();
-
-  constructor(
-    private modalCtrl: ModalController,
-    private apiService: ApiService,
-    private sessionService: SessionService,
-    private scoreService: ScoreService,
-    private toastCtrl: ToastController,
-    @Inject(GEOLOCATION_TOKEN) private geolocation: GeolocationPlugin
-  ) {}
+  private locationRequestId = 0;
 
   ngOnInit() {
     this.checkLocationAndFetchNearby();
@@ -116,15 +138,24 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.stopTracking(true);
     this.searchSubscription.unsubscribe();
     this.clearCountdown();
     this.destroyMap();
   }
 
   private async checkLocationAndFetchNearby() {
+    const requestId = ++this.locationRequestId;
     this.isGpsLoading.set(true);
+    this.locationStatus.set('loading');
     try {
-      const coordinates = await this.getCurrentPosition();
+      const coordinates = await this.withTimeout(
+        this.getCurrentPosition(),
+        6500,
+        'gps_timeout'
+      );
+
+      if (requestId !== this.locationRequestId) return;
 
       const lat = coordinates.coords.latitude;
       const lon = coordinates.coords.longitude;
@@ -133,21 +164,26 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       // Latitude [12.0, 16.0], Longitude [-17.7, -11.0]
       if (lat >= 12.0 && lat <= 16.0 && lon >= -17.7 && lon <= -11.0) {
         this.gpsCoords.set({ lat, lon });
+        this.locationStatus.set('ready');
         this.updateUserMarker();
-        
-        // Fetch nearby stops
-        const sessionId = this.sessionService.getSessionId();
-        const res = await firstValueFrom(this.apiService.getNearby(lat, lon, sessionId || undefined));
-        if (res && res.stops) {
-          this.nearbyStops.set(res.stops.map(s => ({ name: s.nom, dist: s.distance_m })));
-        }
+
+        await this.fetchBackendNearbyStops(lat, lon);
+        this.refreshLineStopsFallback();
       } else {
         console.warn('GPS coordinates are outside Senegal boundaries, ignoring to avoid pollution.');
+        this.locationStatus.set('outside');
+        this.refreshLineStopsFallback();
       }
     } catch (e) {
       console.warn('Could not retrieve GPS coordinates for nearby stops:', e);
+      if (requestId === this.locationRequestId) {
+        this.locationStatus.set('unavailable');
+        this.refreshLineStopsFallback();
+      }
     } finally {
-      this.isGpsLoading.set(false);
+      if (requestId === this.locationRequestId) {
+        this.isGpsLoading.set(false);
+      }
     }
   }
 
@@ -172,11 +208,49 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, reason: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(reason)), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
+  }
+
+  private async fetchBackendNearbyStops(lat: number, lon: number) {
+    try {
+      const sessionId = this.sessionService.getSessionId();
+      const res = await firstValueFrom(this.apiService.getNearby(lat, lon, sessionId || undefined));
+      if (res?.stops?.length) {
+        this.nearbyStops.set(res.stops.map(s => ({
+          name: s.nom,
+          dist: s.distance_m ?? undefined,
+          source: 'gps'
+        })));
+      }
+    } catch (err) {
+      console.warn('Nearby stops unavailable, using local line stops when possible:', err);
+    }
+  }
+
   onSearchInput(event: Event) {
     const val = (event.target as HTMLInputElement).value;
     this.searchQuery = val;
     this.isStopInputFocused.set(true);
     this.searchSubject.next(val);
+    
+    // Clear previously selected or snapped stops when user types
+    this.selectedArret.set('');
+    this.nearestStopName.set(null);
+    this.nearestStopDist.set(null);
+    this.detectedSens.set(null);
   }
 
   onSearchFocus() {
@@ -202,11 +276,24 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     this.loadLineStops(ligne);
     this.step.set(2);
     this.initMap();
+    
+    // Attempt snap-to-line if GPS is available
+    const coords = this.gpsCoords();
+    if (coords) {
+      this.snapToLine(ligne, coords.lat, coords.lon);
+    }
   }
 
   selectArret(arret: string) {
     const normalized = arret.trim();
     if (!normalized) return;
+
+    // Si on a un nearestStop mais qu'on sélectionne un autre arrêt manuellement, on clean
+    if (this.nearestStopName() && normalized !== this.nearestStopName()) {
+      this.nearestStopName.set(null);
+      this.nearestStopDist.set(null);
+      this.detectedSens.set(null);
+    }
 
     this.selectedArret.set(normalized);
     this.searchQuery = '';
@@ -263,13 +350,17 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       const tags = this.selectedTags();
       const finalObservation = tags.length > 0 ? `Tags: ${tags.join(', ')}` : null;
 
-      const payload: any = {
+      const payload: ReportRequest = {
         ligne: this.selectedLigne(),
         arret: this.selectedArret(),
-        mode: this.mode(),
+        mode: this.mode() as 'vu' | 'dedans',
         observation: finalObservation,
         source: hasValidGps ? 'web_geoloc' : 'web_signal'
       };
+
+      if (this.nearestStopName()) {
+        payload.nearest_stop = this.nearestStopName();
+      }
 
       if (hasValidGps && coords) {
         payload.lat = coords.lat;
@@ -375,7 +466,20 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   nearbyTitle(): string {
+    if (this.hasGpsNearbyStops()) return 'Arrêts proches de vous';
+    if (this.nearbyStops().length > 0) return 'Arrêts de la ligne';
     return 'Arrêts proches de vous';
+  }
+
+  hasGpsNearbyStops(): boolean {
+    return this.nearbyStops().some(stop => stop.source === 'gps');
+  }
+
+  nearbyEmptyLabel(): string {
+    if (this.isGpsLoading() && this.lineStops().length === 0) return 'Recherche de position...';
+    if (this.locationStatus() === 'unavailable') return 'GPS indisponible. Tapez un arrêt ou choisissez un arrêt de la ligne.';
+    if (this.locationStatus() === 'outside') return 'Position hors zone Dakar/Sénégal.';
+    return 'Aucun arrêt proche trouvé';
   }
 
   lineStopSuggestions(): LineStopOption[] {
@@ -414,6 +518,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       const data = await firstValueFrom(this.apiService.getLocalStopsIndex());
       const stops = this.extractLineStops(data, ligne);
       this.lineStops.set(stops);
+      this.refreshLineStopsFallback();
 
       if (stops.length === 0) {
         this.lineStopsError.set(`Aucun arrêt embarqué trouvé pour la ligne ${ligne}.`);
@@ -445,6 +550,31 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     }
 
     return stops;
+  }
+
+  private refreshLineStopsFallback() {
+    if (this.hasGpsNearbyStops()) return;
+
+    const stops = this.lineStops();
+    if (stops.length === 0) return;
+
+    const coords = this.gpsCoords();
+    const rankedStops = coords
+      ? stops
+          .map(stop => ({
+            ...stop,
+            dist: stop.lat != null && stop.lon != null
+              ? Math.round(this.haversine(coords.lat, coords.lon, stop.lat, stop.lon))
+              : undefined
+          }))
+          .sort((a, b) => (a.dist ?? Number.POSITIVE_INFINITY) - (b.dist ?? Number.POSITIVE_INFINITY))
+      : stops;
+
+    this.nearbyStops.set(rankedStops.slice(0, 6).map(stop => ({
+      name: stop.name,
+      dist: stop.dist,
+      source: 'line' as const
+    })));
   }
 
   private findResolvableLineStop(query: string): LineStopOption | null {
@@ -511,32 +641,48 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
   }
 
   private initMap() {
-    // Run in a slight delay to ensure Angular has rendered the DOM element #map-signal
-    setTimeout(() => {
+    this.afterStableLayout(async () => {
       const mapContainer = document.getElementById('map-signal');
       if (!mapContainer) return;
 
       if (this.map) {
-        this.map.invalidateSize();
+        this.resizeSignalMap();
         return;
       }
 
       try {
-        this.map = L.map('map-signal', {
-          zoomControl: false,
-          attributionControl: false
-        }).setView([14.7167, -17.4677], 14);
+        const style = await this.mapStyleService.getStyleUrl();
+        this.map = this.createMap({
+          container: 'map-signal',
+          style,
+          center: [-17.4677, 14.7167],
+          zoom: 14,
+          attributionControl: {}
+        });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19,
-          subdomains: 'abcd',
-        }).addTo(this.map);
-
-        this.updateUserMarker();
+        this.map.on('load', () => {
+          this.updateUserMarker();
+          this.resizeSignalMap();
+        });
+        this.resizeSignalMap();
       } catch (err) {
-        console.warn('Failed to initialize Leaflet in signalement modal:', err);
+        console.warn('Failed to initialize MapLibre in signalement modal:', err);
       }
-    }, 50);
+    });
+  }
+
+  private afterStableLayout(callback: () => void) {
+    setTimeout(() => {
+      requestAnimationFrame(() => requestAnimationFrame(callback));
+    }, 0);
+  }
+
+  private resizeSignalMap() {
+    this.afterStableLayout(() => {
+      if (this.map) {
+        this.map.resize();
+      }
+    });
   }
 
   private destroyMap() {
@@ -544,7 +690,7 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       try {
         this.map.remove();
       } catch (e) {
-        console.warn('Error removing Leaflet map in signalement modal:', e);
+        console.warn('Error removing MapLibre map in signalement modal:', e);
       }
       this.map = null;
     }
@@ -557,21 +703,69 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
     if (!coords) return;
 
     try {
-      const userIcon = L.divIcon({
-        className: 'user-location-marker',
-        html: '<div class="blue-dot"></div>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      });
-
       if (this.userMarker) {
-        this.userMarker.setLatLng([coords.lat, coords.lon]);
+        this.userMarker.setLngLat([coords.lon, coords.lat]);
       } else {
-        this.userMarker = L.marker([coords.lat, coords.lon], { icon: userIcon }).addTo(this.map);
+        const element = document.createElement('div');
+        element.className = 'user-location-marker';
+        element.innerHTML = '<div class="blue-dot"></div>';
+        this.userMarker = this.createMarker({
+          element,
+          anchor: 'center'
+        }).setLngLat([coords.lon, coords.lat]).addTo(this.map);
       }
-      this.map.setView([coords.lat, coords.lon], 15);
+      this.map.jumpTo({ center: [coords.lon, coords.lat], zoom: 15 });
     } catch (err) {
       console.warn('Failed to update user marker in signalement map:', err);
+    }
+  }
+
+  private applySnappedStop(stopName: string, dist: number, sens: 'aller' | 'retour') {
+    this.selectedArret.set(stopName);
+    this.nearestStopName.set(stopName);
+    this.nearestStopDist.set(dist);
+    this.detectedSens.set(sens);
+  }
+
+  private haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const dphi = ((lat2 - lat1) * Math.PI) / 180;
+    const dlam = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dphi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dlam / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private async snapToLine(ligne: string, lat: number, lon: number) {
+    try {
+      const data = await firstValueFrom(this.apiService.getLocalStopsIndex());
+      const lineData = data.lignes?.[ligne];
+      if (!lineData) return;
+
+      const aller = (lineData.arrets || []).map(s => ({ ...s, _sens: 'aller' as const }));
+      const retour = (lineData.arrets_retour || []).map(s => ({ ...s, _sens: 'retour' as const }));
+      const stops = [...aller, ...retour];
+
+      let bestDist = Infinity;
+      let bestName: string | null = null;
+      let bestSens: 'aller' | 'retour' | null = null;
+
+      for (const s of stops) {
+        if (s.lat == null || s.lon == null || !s.nom) continue;
+        const d = this.haversine(lat, lon, s.lat, s.lon);
+        if (d < bestDist) {
+          bestDist = d;
+          bestName = s.nom;
+          bestSens = s._sens;
+        }
+      }
+
+      if (bestName && bestDist <= 300) {
+        this.applySnappedStop(bestName, Math.round(bestDist), bestSens!);
+      }
+    } catch (err) {
+      console.warn('Could not snap to line:', err);
     }
   }
 
@@ -580,5 +774,112 @@ export class SignalementModalComponent implements OnInit, OnDestroy {
       success: this.showSuccess(),
       recorded: this.isNewReportRecorded
     });
+  }
+
+  // --- Live Tracking ---
+
+  async startTracking() {
+    this.trackingStatus.set('starting');
+    this.trackingError.set(null);
+    try {
+      const phone = await this.sessionService.getDeviceId();
+      const ligne = this.selectedLigne();
+      if (!ligne) throw new Error('no_line');
+      
+      const req: TrackingSessionStartRequest = {
+        phone,
+        ligne,
+        direction: this.detectedSens() || this.manualSens() || null,
+        consent: true
+      };
+
+      const res = await firstValueFrom(this.apiService.startTrackingSession(req));
+      if (res.status === 'ok' && res.session_id) {
+        this.trackingSessionId.set(res.session_id);
+        this.trackingStatus.set('active');
+        this.startPingLoop();
+      } else if (res.status === 'consent_required') {
+        this.trackingError.set('Consentement requis.');
+        this.trackingStatus.set('inactive');
+      } else {
+        this.trackingError.set('Service temporairement indisponible.');
+        this.trackingStatus.set('inactive');
+      }
+    } catch (e) {
+      console.warn('Erreur startTracking:', e);
+      this.trackingError.set('Impossible de démarrer le suivi.');
+      this.trackingStatus.set('inactive');
+    }
+  }
+
+  private startPingLoop() {
+    this.clearPingLoop();
+    this.pingTracking(); // Immediate ping
+    this.trackingInterval = setInterval(() => {
+      this.pingTracking();
+    }, 30000);
+  }
+
+  private clearPingLoop() {
+    if (this.trackingInterval) {
+      clearInterval(this.trackingInterval);
+      this.trackingInterval = null;
+    }
+  }
+
+  private async pingTracking() {
+    const sessionId = this.trackingSessionId();
+    if (!sessionId || this.trackingStatus() !== 'active') return;
+
+    try {
+      const position = await this.geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+
+      const phone = await this.sessionService.getDeviceId();
+      const req: TrackingSessionPingRequest = {
+        session_id: sessionId,
+        phone,
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        accuracy_m: position.coords.accuracy
+      };
+
+      const res = await firstValueFrom(this.apiService.pingTrackingSession(req));
+      if (res.status === 'no_active_session' || res.status === 'unauthorized_session') {
+        this.clearPingLoop();
+        this.trackingStatus.set('inactive');
+        this.trackingError.set('Session expirée.');
+      }
+    } catch (e) {
+      console.warn('Erreur pingTracking:', e);
+    }
+  }
+
+  async stopTracking(isDestroy = false) {
+    this.clearPingLoop();
+    if (!isDestroy) {
+      this.trackingStatus.set('inactive');
+    }
+
+    const sessionId = this.trackingSessionId();
+    if (!sessionId) return;
+    
+    this.trackingSessionId.set(null);
+
+    try {
+      const phone = await this.sessionService.getDeviceId();
+      const req: TrackingSessionStopRequest = {
+        session_id: sessionId,
+        phone,
+        reason: isDestroy ? 'component_destroyed' : 'user_stop'
+      };
+      // Best-effort local cleanup was done, async network call
+      firstValueFrom(this.apiService.stopTrackingSession(req)).catch(() => {});
+    } catch (e) {
+      console.warn('Failed to stop tracking securely', e);
+    }
   }
 }

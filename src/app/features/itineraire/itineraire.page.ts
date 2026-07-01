@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonContent } from '@ionic/angular/standalone';
 import { firstValueFrom, from, forkJoin, Subject, Subscription, of } from 'rxjs';
@@ -34,6 +34,7 @@ interface DisplayStop {
   type: 'stop' | 'zone' | 'hub';
   source: string;
   lignes: Array<{ numero: string; has_recent: boolean; last_seen_min: number | null }>;
+  arrets_proches?: Array<{ stop_id?: string; nom: string; ligne: string; distance_m: number }>;
 }
 
 interface LocalStopEntry {
@@ -42,6 +43,7 @@ interface LocalStopEntry {
   lon: number | null;
   type?: 'zone' | 'hub';
   source?: string;
+  arrets_proches?: Array<{ stop_id?: string; nom: string; ligne: string; distance_m: number }>;
 }
 
 interface LigneInfo {
@@ -84,6 +86,15 @@ function normalizeText(s: string): string {
   return String(s).toLowerCase().normalize('NFD').replace(DIACRITICS_RE, '').replace(/[-'’./]/g, ' ').trim();
 }
 
+function sortLineIds(lines: string[]): string[] {
+  return [...new Set(lines)].sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+}
+
 const localIndexPromises = new WeakMap<ApiService, Promise<LocalIndex>>();
 
 function loadLocalIndex(apiService: ApiService): Promise<LocalIndex> {
@@ -122,6 +133,21 @@ function loadLocalIndex(apiService: ApiService): Promise<LocalIndex> {
             if (!stops[an].lignes.includes(num)) stops[an].lignes.push(num);
           });
         });
+      });
+
+      (mvp.quartiers || []).forEach((quartier) => {
+        const nom = (quartier.nom || '').trim();
+        if (!nom) return;
+        const lignes = sortLineIds(quartier.lignes || []);
+        const existing = stops[nom];
+        stops[nom] = {
+          lignes: sortLineIds([...(existing?.lignes || []), ...lignes]),
+          lat: existing?.lat ?? quartier.lat ?? null,
+          lon: existing?.lon ?? quartier.lng ?? null,
+          type: 'zone',
+          source: quartier.zone || existing?.source || 'Quartier',
+          arrets_proches: quartier.arrets_proches || existing?.arrets_proches || []
+        };
       });
     } catch {
       // index local de lignes indisponible : on reste sur l'API seule
@@ -219,6 +245,34 @@ function findLocalDirectRoute(index: LocalIndex, from: string, to: string): { li
   return best;
 }
 
+function isDirectRoute(route: DirectRoute | WalkDirectRoute | TransferRoute): route is DirectRoute {
+  return 'number' in route && !('walk_stop' in route);
+}
+
+function uniqueDirectRoutes(routes: Array<DirectRoute | WalkDirectRoute | TransferRoute>): DirectRoute[] {
+  const byLine = new Map<string, DirectRoute>();
+
+  routes.filter(isDirectRoute).forEach((route) => {
+    const existing = byLine.get(route.number);
+    if (!existing || route.nb_stops < existing.nb_stops) {
+      byLine.set(route.number, route);
+    }
+  });
+
+  return [...byLine.values()].sort((a, b) => {
+    const na = Number(a.number);
+    const nb = Number(b.number);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return a.number.localeCompare(b.number);
+  });
+}
+
+function formatLineSet(lines: string[]): string {
+  const visible = lines.slice(0, 4);
+  const suffix = lines.length > visible.length ? ` +${lines.length - visible.length}` : '';
+  return `${visible.join(', ')}${suffix}`;
+}
+
 function localToApiFormat(stopsRes: Array<LocalStopEntry & { nom: string }>, recentLines: string[]): DisplayStop[] {
   return stopsRes.map((r) => ({
     nom: r.nom,
@@ -227,7 +281,8 @@ function localToApiFormat(stopsRes: Array<LocalStopEntry & { nom: string }>, rec
     distance_m: null,
     type: r.type || 'stop',
     source: r.source || '',
-    lignes: (r.lignes || []).map((numero) => ({ numero, has_recent: recentLines.includes(numero), last_seen_min: null }))
+    lignes: (r.lignes || []).map((numero) => ({ numero, has_recent: recentLines.includes(numero), last_seen_min: null })),
+    arrets_proches: r.arrets_proches || []
   }));
 }
 
@@ -261,6 +316,9 @@ function mergeDisplayStops(apiStops: StopsSearchResponse['stops'], localStops: D
   imports: [CommonModule, IonContent]
 })
 export class ItinerairePage implements OnInit, OnDestroy {
+  private readonly apiService = inject(ApiService);
+  private readonly storeService = inject(StoreService);
+
   fromQuery = signal<string>('');
   toQuery = signal<string>('');
   activeField = signal<FieldKey | null>(null);
@@ -284,8 +342,6 @@ export class ItinerairePage implements OnInit, OnDestroy {
   private pickReopenTimer: ReturnType<typeof setTimeout> | null = null;
   private search$ = new Subject<string>();
   private subscriptions = new Subscription();
-
-  constructor(private apiService: ApiService, private storeService: StoreService) {}
 
   ngOnInit() {
     loadLocalIndex(this.apiService);
@@ -397,6 +453,12 @@ export class ItinerairePage implements OnInit, OnDestroy {
 
   isZoneStop(stop: DisplayStop): boolean {
     return stop.type === 'zone' || stop.type === 'hub' || !stop.lignes.length;
+  }
+
+  nearbyQuartierStops(stop: DisplayStop): Array<{ stop_id?: string; nom: string; ligne: string; distance_m: number }> {
+    return [...(stop.arrets_proches || [])]
+      .sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0))
+      .slice(0, 3);
   }
 
   onFieldBlur(field: FieldKey) {
@@ -565,18 +627,26 @@ export class ItinerairePage implements OnInit, OnDestroy {
       const best = routes[0];
 
       if (status === 'direct') {
-        const route = best as DirectRoute;
+        const directRoutes = uniqueDirectRoutes(routes);
+        const route = (directRoutes[0] || best) as DirectRoute;
+        const directLines = directRoutes.map((item) => item.number);
+        const hasAlternatives = directLines.length > 1;
+        const lineLabel = hasAlternatives ? `Lignes ${formatLineSet(directLines)}` : `Ligne ${route.number}`;
         this.stepper.set({
-          busMain: `Ligne ${route.number} - direct`,
-          busSub: `${route.nb_stops} arrêts`,
+          busMain: `${lineLabel} - direct`,
+          busSub: hasAlternatives
+            ? `Option principale: ligne ${route.number} · ${route.nb_stops} arrêts`
+            : `${route.nb_stops} arrêts`,
           walk: r.dest_display || to,
           duration: `~${route.nb_stops * 2} min`
         });
         this.routeDetail.set({
           kind: 'direct',
-          title: `Ligne ${route.number}`,
-          subtitle: route.name || 'Trajet direct',
-          lines: [route.number],
+          title: lineLabel,
+          subtitle: hasAlternatives
+            ? `Option principale: ${route.name || `Ligne ${route.number}`}`
+            : (route.name || 'Trajet direct'),
+          lines: directLines.length ? directLines : [route.number],
           stops: route.stops || []
         });
       } else if (status === 'walk_direct') {

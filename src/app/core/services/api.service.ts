@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, timer } from 'rxjs';
 import { catchError, mergeMap, retry } from 'rxjs/operators';
@@ -13,6 +13,13 @@ import {
   LeaderboardResponse,
   ReportRequest,
   ReportResponse,
+  TrackingRelanceResponse,
+  TrackingSessionStartRequest,
+  TrackingSessionStartResponse,
+  TrackingSessionPingRequest,
+  TrackingSessionPingResponse,
+  TrackingSessionStopRequest,
+  TrackingSessionStopResponse,
   XetuMvpData,
   SecteursDakarData
 } from '../models/models';
@@ -21,10 +28,8 @@ import {
   providedIn: 'root'
 })
 export class ApiService {
-  constructor(
-    private http: HttpClient,
-    private sessionService: SessionService
-  ) {}
+  private readonly http = inject(HttpClient);
+  private readonly sessionService = inject(SessionService);
 
   /**
    * Applies retry logic with exponential backoff on 5xx or network errors.
@@ -159,6 +164,46 @@ export class ApiService {
       .post<ReportResponse>(
         `${environment.apiBase}/api/report`,
         body,
+        { headers: this.getHeaders() }
+      )
+      .pipe(this.applyRetry());
+  }
+
+  requestBusRefresh(ligne: string): Observable<TrackingRelanceResponse> {
+    return this.http
+      .post<TrackingRelanceResponse>(
+        `${environment.apiBase}/tracking/relance`,
+        { ligne },
+        { headers: this.getHeaders() }
+      )
+      .pipe(this.applyRetry());
+  }
+
+  startTrackingSession(req: TrackingSessionStartRequest): Observable<TrackingSessionStartResponse> {
+    return this.http
+      .post<TrackingSessionStartResponse>(
+        `${environment.apiBase}/tracking/session/start`,
+        req,
+        { headers: this.getHeaders() }
+      )
+      .pipe(this.applyRetry());
+  }
+
+  pingTrackingSession(req: TrackingSessionPingRequest): Observable<TrackingSessionPingResponse> {
+    return this.http
+      .post<TrackingSessionPingResponse>(
+        `${environment.apiBase}/tracking/session/ping`,
+        req,
+        { headers: this.getHeaders() }
+      )
+      .pipe(this.applyRetry());
+  }
+
+  stopTrackingSession(req: TrackingSessionStopRequest): Observable<TrackingSessionStopResponse> {
+    return this.http
+      .post<TrackingSessionStopResponse>(
+        `${environment.apiBase}/tracking/session/stop`,
+        req,
         { headers: this.getHeaders() }
       )
       .pipe(this.applyRetry());

@@ -220,6 +220,18 @@
                             }
                           </div>
                         }
+                        @if (nearbyQuartierStops(stop).length > 0) {
+                          <div class="itin-quartier-nearby">
+                            <div class="itin-quartier-nearby-title">Arrêts proches</div>
+                            @for (nearby of nearbyQuartierStops(stop); track nearby.stop_id || nearby.nom + nearby.ligne) {
+                              <button type="button" class="itin-quartier-stop" (mousedown)="pickStop(nearby.nom, $event)" (touchend)="pickStop(nearby.nom, $event)">
+                                <span class="itin-quartier-stop-line">{{ nearby.ligne }}</span>
+                                <span class="itin-quartier-stop-name">{{ nearby.nom }}</span>
+                                <span class="itin-quartier-stop-dist">{{ nearby.distance_m }} m</span>
+                              </button>
+                            }
+                          </div>
+                        }
                         <div class="itin-arret-sep"></div>
                         <div class="itin-arret-footer">
                           @if (activeField() === 'from') {

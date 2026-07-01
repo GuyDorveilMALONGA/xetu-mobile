@@ -115,6 +115,14 @@
                   <span class="bus-status-label">{{ statusLabel(bus) }}</span>
                   <span class="bus-status-message">{{ statusMessage(bus) }}</span>
                 </div>
+                @if (isBusSelected(bus) && relanceAllowed(bus)) {
+                  <div class="bus-actions">
+                    <button class="btn-relance" type="button" (click)="relanceBus(bus, $event)" [disabled]="isRelancing(bus.ligne)">
+                      <span class="xetu-icon xetu-icon--refresh" aria-hidden="true"></span>
+                      {{ isRelancing(bus.ligne) ? 'Demande en cours...' : 'Demander position actuelle' }}
+                    </button>
+                  </div>
+                }
                 @if (isBusSelected(bus) && bus.next_stops_eta.length > 0) {
                   <div class="bus-stops-preview">
                     <div class="bus-stops-title">Prochains arrÃªts</div>

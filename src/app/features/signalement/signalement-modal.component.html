@@ -71,14 +71,22 @@
           <span class="sg-step2-label">Où est ce bus en ce moment ?</span>
         </div>
 
-        <!-- Mini map Leaflet (Light visual version as per user constraint) -->
-        <div class="sg-mini-map-wrap" style="position: relative; height: 160px; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border);">
-          <div id="map-signal" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></div>
-          <div class="sg-map-status-badge" id="sg-map-status" style="position: absolute; top: 10px; left: 10px; z-index: 2;">
-            {{ isGpsLoading() ? 'Position en attente...' : (gpsCoords() ? 'Position détectée' : 'GPS non disponible') }}
+        <!-- Mini map -->
+        <div class="sg-mini-map-wrap">
+          <div id="map-signal" class="sg-mini-map"></div>
+          <div class="sg-map-status-badge" id="sg-map-status">
+            @if (isGpsLoading()) {
+              Position en attente...
+            } @else if (nearestStopName()) {
+              {{ nearestStopName() }} · {{ nearestStopDist() }}m · {{ detectedSens() }}
+            } @else if (gpsCoords()) {
+              Position détectée
+            } @else {
+              GPS non disponible
+            }
           </div>
           @if (isGpsLoading()) {
-            <div id="gps-spinner" class="gps-spinner-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: rgba(10, 15, 30, 0.4); z-index: 3;">
+            <div id="gps-spinner" class="gps-spinner-overlay">
               <span class="gps-spinner-dot"></span>
               <span class="gps-spinner-dot"></span>
               <span class="gps-spinner-dot"></span>
@@ -97,12 +105,7 @@
         <div class="sg-step2-nearby">
           <div class="sg-stops-section-title">{{ nearbyTitle() }}</div>
           <div id="sg-stops-list" style="display:flex; flex-direction:column; gap:6px;">
-            @if (isGpsLoading()) {
-              <div class="sg-stop-card" style="opacity:0.4; pointer-events:none;">
-                <div class="sg-stop-dot"></div>
-                <div><div class="sg-stop-name">En attente du GPS…</div></div>
-              </div>
-            } @else if (nearbyStops().length > 0 && !searchQuery.trim()) {
+            @if (nearbyStops().length > 0 && !searchQuery.trim()) {
               @for (stop of nearbyStops(); track stop.name) {
                 <button class="sg-stop-card" (click)="selectArret(stop.name)">
                   <div class="sg-stop-dot"></div>
@@ -117,10 +120,10 @@
                   </span>
                 </button>
               }
-            } @else if (nearbyStops().length === 0 && !isGpsLoading() && !searchQuery.trim()) {
+            } @else if (!searchQuery.trim()) {
               <div class="sg-stop-card" style="opacity:0.4; pointer-events:none;">
                 <div class="sg-stop-dot"></div>
-                <div><div class="sg-stop-name">Aucun arrêt proche trouvé</div></div>
+                <div><div class="sg-stop-name">{{ nearbyEmptyLabel() }}</div></div>
               </div>
             }
           </div>
@@ -167,8 +170,8 @@
         <div class="sg-step-nav">
           <button class="sg-btn-back-step" id="sg-back-1" (click)="goBack()">← Ligne</button>
           <button class="sg-btn-next-step" id="sg-next-2" type="button"
-                  [disabled]="!manualStopLabel()"
-                  (click)="selectArret(manualStopLabel())">
+                  [disabled]="!selectedArret() && !manualStopLabel()"
+                  (click)="manualStopLabel() ? selectArret(manualStopLabel()) : step.set(3)">
             Suivant →
           </button>
         </div>
@@ -249,6 +252,36 @@
           </div>
         </div>
 
+        <!-- Direction (Sens) -->
+        <div>
+          <div class="sg-stops-section-title">Direction</div>
+          @if (detectedSens()) {
+            <div class="sg-mode-wrap" style="display: block; padding: 12px; background: var(--bg-card-raised); border-radius: 8px; border: 1px solid var(--border);">
+              <div style="font-weight: 500; color: var(--text-base);">Détectée automatiquement:</div>
+              <div style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">
+                Direction {{ detectedSens() === 'aller' ? lineTerminusA() : lineTerminusB() }}
+              </div>
+            </div>
+          } @else {
+            <div class="sg-mode-wrap" role="radiogroup" aria-label="Direction">
+              <button class="sg-mode-option" [class.selected]="manualSens() === 'aller'" type="button" (click)="manualSens.set('aller')">
+                <span class="xetu-icon" style="font-size: 18px; font-weight: bold; margin-left: 8px;">→</span>
+                <span>
+                  <span class="sg-mode-title">Aller</span>
+                  <span class="sg-mode-sub">Vers {{ lineTerminusA() }}</span>
+                </span>
+              </button>
+              <button class="sg-mode-option" [class.selected]="manualSens() === 'retour'" type="button" (click)="manualSens.set('retour')">
+                <span class="xetu-icon" style="font-size: 18px; font-weight: bold; margin-left: 8px;">←</span>
+                <span>
+                  <span class="sg-mode-title">Retour</span>
+                  <span class="sg-mode-sub">Vers {{ lineTerminusB() }}</span>
+                </span>
+              </button>
+            </div>
+          }
+        </div>
+
         <!-- Quality Tags -->
         <div>
           <div class="sg-stops-section-title">
@@ -320,6 +353,28 @@
           </div>
         </div>
         
+        @if (mode() === 'dedans') {
+          <div class="tracking-action-wrap" style="margin-top: 16px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            @if (trackingStatus() === 'inactive') {
+              <button class="sg-btn-send-v3" style="background-color: var(--primary); max-width: 280px;" (click)="startTracking()">
+                Partager ma position pendant le trajet
+              </button>
+            } @else if (trackingStatus() === 'starting') {
+              <button class="sg-btn-send-v3" style="opacity: 0.7; max-width: 280px;" disabled>
+                Démarrage...
+              </button>
+            } @else if (trackingStatus() === 'active') {
+              <div style="color: var(--success); font-weight: 500; font-size: 14px;">✓ Position partagée en direct</div>
+              <button class="sg-btn-send-v3" style="background-color: var(--danger); max-width: 280px;" (click)="stopTracking()">
+                Arrêter le partage
+              </button>
+            }
+            @if (trackingError()) {
+              <div class="geoloc-status geoloc-status--warn" style="font-size: 12px; margin-top: 4px;">{{ trackingError() }}</div>
+            }
+          </div>
+        }
+
         <button class="sg-btn-send-v3 btn-success-new" id="btn-success-new" style="max-width:280px; box-shadow:none; margin-top: 20px;" (click)="dismiss()">
           Retour à la carte
         </button>

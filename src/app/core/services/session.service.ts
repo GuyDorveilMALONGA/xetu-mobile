@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { PREFERENCES_TOKEN } from './preferences.token';
 import { PreferencesPlugin } from '@capacitor/preferences';
@@ -10,14 +10,12 @@ import { firstValueFrom } from 'rxjs';
   providedIn: 'root'
 })
 export class SessionService {
+  private readonly http = inject(HttpClient);
+  private readonly preferences = inject(PREFERENCES_TOKEN);
+
   private sessionId: string | null = null;
   private token: string | null = null;
   private sessionPromise: Promise<{ sessionId: string; token: string }> | null = null;
-
-  constructor(
-    private http: HttpClient,
-    @Inject(PREFERENCES_TOKEN) private preferences: PreferencesPlugin
-  ) {}
 
   /**
    * Generates a unique anonymous session ID prefixing 'web_'
@@ -90,6 +88,14 @@ export class SessionService {
 
   getAuthHeaders(): { Authorization: string } {
     return { Authorization: `Bearer ${this.token || ''}` };
+  }
+
+  async getDeviceId(): Promise<string> {
+    const { sessionId } = await this.ensureSession();
+    const raw = sessionId.startsWith('web_')
+      ? sessionId.slice(4)
+      : sessionId.replace(/^(mob_|web_)/, '');
+    return `mob_${raw}`;
   }
 
   /**

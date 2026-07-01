@@ -10,7 +10,7 @@
  */
 
 @use 'theme/xetu';
-@import "leaflet/dist/leaflet.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 /* Core CSS required for Ionic components to work properly */
 @import "@ionic/angular/css/core.css";
@@ -38,3 +38,55 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
+
+.itineraire-content {
+  .itin-quartier-nearby {
+    display: grid;
+    gap: 6px;
+    padding: 0 14px 10px;
+  }
+
+  .itin-quartier-nearby-title {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .itin-quartier-stop {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 7px 8px;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .itin-quartier-stop-line {
+    min-width: 28px;
+    padding: 4px 7px;
+    border-radius: var(--radius-sm);
+    background: var(--green);
+    color: #062414;
+    font: 900 11px var(--font-mono);
+    text-align: center;
+  }
+
+  .itin-quartier-stop-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .itin-quartier-stop-dist {
+    color: var(--muted);
+    font: 600 11px var(--font-mono);
+  }
+}

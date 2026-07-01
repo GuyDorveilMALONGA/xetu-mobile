@@ -4,10 +4,48 @@ import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
 import { ScoreService } from '../../core/services/score.service';
 import { GEOLOCATION_TOKEN } from '../../core/services/geolocation.token';
+import { MAPLIBRE_FACTORY_TOKEN, MAPLIBRE_MARKER_FACTORY_TOKEN } from '../../core/services/maplibre.token';
+import { MapStyleService } from '../../core/services/map-style.service';
 import { GeolocationPlugin } from '@capacitor/geolocation';
 import { ModalController, ToastController } from '@ionic/angular/standalone';
 import { of, throwError } from 'rxjs';
 import { signal } from '@angular/core';
+
+class FakeMapLibreMap {
+  on(event: string, callback: () => void) {
+    if (event === 'load') {
+      callback();
+    }
+  }
+
+  resize() {}
+  remove() {}
+  jumpTo(_options: any) {}
+}
+
+class FakeMapLibreMarker {
+  private element: HTMLElement;
+
+  constructor(options: any) {
+    this.element = options.element;
+  }
+
+  setLngLat(_coords: [number, number]) {
+    return this;
+  }
+
+  addTo(_map: FakeMapLibreMap) {
+    if (!this.element.isConnected) {
+      document.body.appendChild(this.element);
+    }
+    return this;
+  }
+
+  remove() {
+    this.element.remove();
+    return this;
+  }
+}
 
 describe('SignalementModalComponent', () => {
   let apiServiceSpy: jasmine.SpyObj<ApiService>;
@@ -18,8 +56,8 @@ describe('SignalementModalComponent', () => {
   let toastCtrlSpy: jasmine.SpyObj<ToastController>;
 
   beforeEach(async () => {
-    const apiSpy = jasmine.createSpyObj('ApiService', ['searchStops', 'getNearby', 'reportBus', 'getLocalStopsIndex']);
-    const sessionSpy = jasmine.createSpyObj('SessionService', ['ensureSession', 'getSessionId']);
+    const apiSpy = jasmine.createSpyObj('ApiService', ['searchStops', 'getNearby', 'reportBus', 'getLocalStopsIndex', 'startTrackingSession', 'pingTrackingSession', 'stopTrackingSession']);
+    const sessionSpy = jasmine.createSpyObj('SessionService', ['ensureSession', 'getSessionId', 'getDeviceId']);
     const scoreSpy = jasmine.createSpyObj('ScoreService', ['increment']);
     // Since points is a signal, we mock it as a function returning a value.
     (scoreSpy as any).points = jasmine.createSpy('points').and.returnValue(5);
@@ -35,6 +73,9 @@ describe('SignalementModalComponent', () => {
         { provide: SessionService, useValue: sessionSpy },
         { provide: ScoreService, useValue: scoreSpy },
         { provide: GEOLOCATION_TOKEN, useValue: geoSpy },
+        { provide: MAPLIBRE_FACTORY_TOKEN, useValue: () => new FakeMapLibreMap() },
+        { provide: MAPLIBRE_MARKER_FACTORY_TOKEN, useValue: (options: any) => new FakeMapLibreMarker(options) },
+        { provide: MapStyleService, useValue: { getStyleUrl: () => Promise.resolve('test-style') } },
         { provide: ModalController, useValue: modalSpy },
         { provide: ToastController, useValue: toastSpy }
       ]
@@ -80,6 +121,7 @@ describe('SignalementModalComponent', () => {
       }
     }));
     apiServiceSpy.reportBus.and.returnValue(of({ id: 'report_789', status: 'recorded' }));
+    apiServiceSpy.pingTrackingSession.and.returnValue(of({ status: 'ok', ligne: '4', direction: 'aller', projection_error_m: 0 }));
 
     // Mock Geolocation plugin default behavior
     geolocationMock.getCurrentPosition.and.resolveTo({
@@ -168,7 +210,7 @@ describe('SignalementModalComponent', () => {
 
     expect(component.gpsCoords()).toEqual({ lat: 14.68, lon: -17.45 });
     expect(apiServiceSpy.getNearby).toHaveBeenCalledWith(14.68, -17.45, 'session_123');
-    expect(component.nearbyStops()).toContain({ name: 'Fann', dist: 100 });
+    expect(component.nearbyStops()).toContain({ name: 'Fann', dist: 100, source: 'gps' });
   }));
 
   it('should ignore GPS coords if outside Senegal bounds', fakeAsync(() => {
@@ -193,6 +235,26 @@ describe('SignalementModalComponent', () => {
 
     expect(component.gpsCoords()).toBeNull();
     expect(apiServiceSpy.getNearby).not.toHaveBeenCalled();
+  }));
+
+  it('should show embedded line stops when GPS is unavailable', fakeAsync(() => {
+    spyOn(console, 'warn');
+    geolocationMock.getCurrentPosition.and.rejectWith(new Error('Permission denied'));
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(6501);
+
+    component.selectLigne('4');
+    tick();
+
+    expect(component.locationStatus()).toBe('unavailable');
+    expect(component.nearbyTitle()).toBe('Arrêts de la ligne');
+    expect(component.nearbyStops()).toEqual([
+      { name: 'Gare DIEUPPEUL', dist: undefined, source: 'line' },
+      { name: 'Sapeur Pompier Dieuppeul', dist: undefined, source: 'line' }
+    ]);
   }));
 
   it('should submit report with source web_geoloc and coordinates when GPS is valid', fakeAsync(() => {
@@ -380,4 +442,195 @@ describe('SignalementModalComponent', () => {
     // Clean up timer
     component.ngOnDestroy();
   }));
+
+  it('should snap to line and fill selectedArret and nearestStop when distance <= 300m', fakeAsync(() => {
+    // Set GPS coords close to Gare DIEUPPEUL (lat: 14.72309, lon: -17.45865)
+    geolocationMock.getCurrentPosition.and.resolveTo({
+      timestamp: Date.now(),
+      coords: { latitude: 14.723, longitude: -17.458, accuracy: 10 } as any
+    });
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(); // resolve geolocation
+
+    // Select line which triggers snap
+    component.selectLigne('4');
+    tick(); // resolve local stops index and snap
+
+    expect(component.nearestStopName()).toBe('Gare DIEUPPEUL');
+    expect(component.selectedArret()).toBe('Gare DIEUPPEUL');
+    expect(component.detectedSens()).toBe('aller'); // because best match is in aller
+  }));
+
+  it('should not snap to line when GPS distance > 300m', fakeAsync(() => {
+    // Set GPS coords far from Gare DIEUPPEUL
+    geolocationMock.getCurrentPosition.and.resolveTo({
+      timestamp: Date.now(),
+      coords: { latitude: 14.700, longitude: -17.400, accuracy: 10 } as any
+    });
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(); 
+
+    component.selectLigne('4');
+    tick();
+
+    expect(component.nearestStopName()).toBeNull();
+    expect(component.selectedArret()).toBe('');
+  }));
+
+  it('should clear nearestStop state if a different stop is selected manually after snap', fakeAsync(() => {
+    geolocationMock.getCurrentPosition.and.resolveTo({
+      timestamp: Date.now(),
+      coords: { latitude: 14.723, longitude: -17.458, accuracy: 10 } as any
+    });
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(); 
+
+    component.selectLigne('4');
+    tick();
+
+    expect(component.nearestStopName()).toBe('Gare DIEUPPEUL');
+
+    // Manually select a different stop
+    component.selectArret('Sapeur Pompier Dieuppeul');
+    
+    expect(component.selectedArret()).toBe('Sapeur Pompier Dieuppeul');
+    expect(component.nearestStopName()).toBeNull();
+    expect(component.detectedSens()).toBeNull();
+  }));
+
+  it('should include nearest_stop in the payload when snap is valid, and never include sens', fakeAsync(() => {
+    geolocationMock.getCurrentPosition.and.resolveTo({
+      timestamp: Date.now(),
+      coords: { latitude: 14.723, longitude: -17.458, accuracy: 10 } as any
+    });
+
+    const fixture = TestBed.createComponent(SignalementModalComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(); 
+
+    component.selectLigne('4');
+    tick();
+
+    component.mode.set('dedans');
+    component.submitReport();
+    tick();
+
+    expect(apiServiceSpy.reportBus).toHaveBeenCalledWith({
+      ligne: '4',
+      arret: 'Gare DIEUPPEUL',
+      mode: 'dedans',
+      observation: null,
+      source: 'web_geoloc',
+      lat: 14.723,
+      lon: -17.458,
+      nearest_stop: 'Gare DIEUPPEUL'
+      // no sens field!
+    } as any);
+  }));
+
+  describe('Live Tracking (Lot 3)', () => {
+    it('should start tracking, start ping loop, and stop cleanly', fakeAsync(() => {
+      const fixture = TestBed.createComponent(SignalementModalComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      sessionServiceSpy.getDeviceId.and.resolveTo('mob_test_123');
+      apiServiceSpy.startTrackingSession = jasmine.createSpy('startTrackingSession').and.returnValue(of({ status: 'ok', session_id: 'tracking_123' }));
+      apiServiceSpy.pingTrackingSession = jasmine.createSpy('pingTrackingSession').and.returnValue(of({ status: 'ok' }));
+      apiServiceSpy.stopTrackingSession = jasmine.createSpy('stopTrackingSession').and.returnValue(of({ status: 'ok' }));
+
+      component.selectedLigne.set('4');
+      component.manualSens.set('aller');
+      
+      component.startTracking();
+      tick();
+
+      expect(component.trackingStatus()).toBe('active');
+      expect(component.trackingSessionId()).toBe('tracking_123');
+      expect(apiServiceSpy.startTrackingSession).toHaveBeenCalledWith({
+        phone: 'mob_test_123',
+        ligne: '4',
+        direction: 'aller',
+        consent: true
+      });
+
+      // advance 30s to trigger ping
+      tick(30000);
+      expect(apiServiceSpy.pingTrackingSession).toHaveBeenCalledWith({
+        session_id: 'tracking_123',
+        phone: 'mob_test_123',
+        lat: 14.68,
+        lon: -17.45,
+        accuracy_m: 10
+      });
+
+      // trigger stop
+      component.stopTracking(false);
+      tick();
+
+      expect(component.trackingStatus()).toBe('inactive');
+      expect(component.trackingSessionId()).toBeNull();
+      expect(apiServiceSpy.stopTrackingSession).toHaveBeenCalledWith({
+        session_id: 'tracking_123',
+        phone: 'mob_test_123',
+        reason: 'user_stop'
+      });
+    }));
+
+    it('should handle unauthorized_session on ping', fakeAsync(() => {
+      const fixture = TestBed.createComponent(SignalementModalComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      sessionServiceSpy.getDeviceId.and.resolveTo('mob_test_123');
+      apiServiceSpy.startTrackingSession = jasmine.createSpy('startTrackingSession').and.returnValue(of({ status: 'ok', session_id: 'tracking_123' }));
+      apiServiceSpy.pingTrackingSession = jasmine.createSpy('pingTrackingSession').and.returnValue(of({ status: 'unauthorized_session' }));
+
+      component.selectedLigne.set('4');
+      component.startTracking();
+      tick();
+
+      // trigger ping
+      tick(30000);
+      
+      expect(component.trackingStatus()).toBe('inactive');
+      expect(component.trackingError()).toBe('Session expirée.');
+      expect(component.trackingSessionId()).toBe('tracking_123'); // id preserved to debug if needed, but loop is dead
+    }));
+
+    it('should clear interval and attempt stop on destroy', fakeAsync(() => {
+      const fixture = TestBed.createComponent(SignalementModalComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      sessionServiceSpy.getDeviceId.and.resolveTo('mob_test_123');
+      apiServiceSpy.startTrackingSession = jasmine.createSpy('startTrackingSession').and.returnValue(of({ status: 'ok', session_id: 'tracking_123' }));
+      apiServiceSpy.stopTrackingSession = jasmine.createSpy('stopTrackingSession').and.returnValue(of({ status: 'ok' }));
+
+      component.selectedLigne.set('4');
+      component.startTracking();
+      tick();
+
+      expect(component.trackingStatus()).toBe('active');
+      
+      component.ngOnDestroy();
+      tick();
+
+      expect(apiServiceSpy.stopTrackingSession).toHaveBeenCalledWith({
+        session_id: 'tracking_123',
+        phone: 'mob_test_123',
+        reason: 'component_destroyed'
+      });
+    }));
+  });
 });

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 import { WsService } from './core/services/ws.service';
 
@@ -8,7 +8,7 @@ import { WsService } from './core/services/ws.service';
   imports: [IonApp, IonRouterOutlet],
 })
 export class AppComponent implements OnInit {
-  constructor(private wsService: WsService) {}
+  private readonly wsService = inject(WsService);
 
   ngOnInit() {
     this.wsService.connect().catch(err => {

@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, OnInit, OnDestroy, computed } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnInit, OnDestroy, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonContent } from '@ionic/angular/standalone';
 import { WsService } from '../../core/services/ws.service';
@@ -22,6 +22,9 @@ const STATUS_LABELS: Record<string, string> = {
   imports: [CommonModule, IonContent, FormatMessagePipe]
 })
 export class ChatPage implements OnInit, OnDestroy {
+  private readonly wsService = inject(WsService);
+  private readonly storeService = inject(StoreService);
+
   @ViewChild('messagesWrap') messagesWrapRef?: ElementRef<HTMLDivElement>;
   @ViewChild('composerInput') composerInputRef?: ElementRef<HTMLTextAreaElement>;
 
@@ -33,8 +36,6 @@ export class ChatPage implements OnInit, OnDestroy {
   chatTyping = this.storeService.chatTyping;
   chatStatus = this.storeService.chatStatus;
   statusLabel = computed(() => STATUS_LABELS[this.wsStatus()] ?? STATUS_LABELS['closed']);
-
-  constructor(private wsService: WsService, private storeService: StoreService) {}
 
   async ngOnInit() {
     this.scrollToBottom();

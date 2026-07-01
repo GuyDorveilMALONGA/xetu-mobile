@@ -122,4 +122,42 @@ describe('ApiService', () => {
     });
     req.flush({ status: 'already_recorded' });
   });
+
+  it('should send exactly { ligne: "4" } on requestBusRefresh without phone', () => {
+    service.requestBusRefresh('4').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBase}/tracking/relance`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ ligne: '4' });
+    req.flush({ status: 'sent' });
+  });
+
+  describe('Live Tracking', () => {
+    it('should POST /tracking/session/start with correct payload', () => {
+      const payload = { phone: 'mob_test', ligne: '4', direction: 'aller', consent: true };
+      service.startTrackingSession(payload).subscribe();
+      const req = httpMock.expectOne(`${environment.apiBase}/tracking/session/start`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(payload);
+      req.flush({ status: 'ok', session_id: 'sess_123' });
+    });
+
+    it('should POST /tracking/session/ping with correct payload', () => {
+      const payload = { session_id: 'sess_123', phone: 'mob_test', lat: 14.7, lon: -17.4, accuracy_m: 10 };
+      service.pingTrackingSession(payload).subscribe();
+      const req = httpMock.expectOne(`${environment.apiBase}/tracking/session/ping`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(payload);
+      req.flush({ status: 'ok' });
+    });
+
+    it('should POST /tracking/session/stop with correct payload', () => {
+      const payload = { session_id: 'sess_123', phone: 'mob_test', reason: 'user_stop' };
+      service.stopTrackingSession(payload).subscribe();
+      const req = httpMock.expectOne(`${environment.apiBase}/tracking/session/stop`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(payload);
+      req.flush({ status: 'ok' });
+    });
+  });
 });

@@ -104,4 +104,48 @@ describe('SessionService', () => {
     expect(service.getToken()).toBeNull();
     expect(preferencesMock.remove).toHaveBeenCalledWith({ key: 'xetu_session_token' });
   }));
+
+  describe('getDeviceId', () => {
+    it('should derive mob_ prefix from web_ prefix', fakeAsync(() => {
+      preferencesMock.get.and.callFake(async ({ key }) => {
+        if (key === 'xetu_session_id') return { value: 'web_abc123' };
+        if (key === 'xetu_session_token') return { value: 'token' };
+        return { value: null };
+      });
+
+      let deviceId: string = '';
+      service.getDeviceId().then(res => deviceId = res);
+      tick();
+
+      expect(deviceId).toBe('mob_abc123');
+    }));
+
+    it('should prepend mob_ if no prefix exists', fakeAsync(() => {
+      preferencesMock.get.and.callFake(async ({ key }) => {
+        if (key === 'xetu_session_id') return { value: 'abc12345' };
+        if (key === 'xetu_session_token') return { value: 'token' };
+        return { value: null };
+      });
+
+      let deviceId: string = '';
+      service.getDeviceId().then(res => deviceId = res);
+      tick();
+
+      expect(deviceId).toBe('mob_abc12345');
+    }));
+
+    it('should keep mob_ if it already has mob_ prefix', fakeAsync(() => {
+      preferencesMock.get.and.callFake(async ({ key }) => {
+        if (key === 'xetu_session_id') return { value: 'mob_def567' };
+        if (key === 'xetu_session_token') return { value: 'token' };
+        return { value: null };
+      });
+
+      let deviceId: string = '';
+      service.getDeviceId().then(res => deviceId = res);
+      tick();
+
+      expect(deviceId).toBe('mob_def567');
+    }));
+  });
 });
